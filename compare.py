@@ -1,3 +1,7 @@
+'''
+quick test to compare numpy math vs list comprehensions as a function
+of size of data.
+'''
 import numpy as np
 from math import pi, sin, cos,atan2,sqrt
 import time
