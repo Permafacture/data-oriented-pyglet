@@ -30,12 +30,12 @@ def singleattribute_setter_factory(domain,attr):
         attr[index] = data
       return setter
 
-def data_accessor_factory(name,domain):
+def data_accessor_factory(name,domain,plural_attributes,single_attributes):
     '''return a new class to instantiate DataAcessors for this DataDomain'''
     NewAccessor = type(name,(DataAccessor,),{})
     getter = singleattribute_getter_factory
     setter = singleattribute_setter_factory
-    for attr in domain._single_attributes:
+    for attr in single_attributes:
       setattr(NewAccessor,attr.name,property(getter(domain,attr), setter(domain,attr)))
     return NewAccessor
 
