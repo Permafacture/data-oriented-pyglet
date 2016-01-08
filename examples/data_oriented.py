@@ -1,3 +1,8 @@
+'''
+First example showing a Data Oriented ORM with object-instance like 
+data accessors
+'''
+
 import numpy as np
 from numpy import sin, cos, pi, sqrt
 from math import atan2
