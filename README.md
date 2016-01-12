@@ -61,6 +61,17 @@ Some thoughts and questions:
 
 Some TODOs:
 
-  * Selectors will be important (layred slices and masks). 
+  * ArrayAttributes should know what data is valid and return only that
+      (leaving it to the user to always slice for valid data is error prone) 
+  * Use a heirarchical structure of domains, where each sub domain registers
+      itself with the parent domain and provides the expected interface
+      so the parent domain can iterate through its registered sub domains
+      and update it's data.
+  * It would be nice to be able to cache state within a domain so that if
+      parts of the sub domain don't update, parts of the domain don't need to
+      update either (except it may have to move data around in it's buffers 
+      to consolidate the cache if parts of the sub_domain are deleted or 
+      resized.
+  * Selectors will be important (layered slices and masks). 
       Provide clean functionality for them.
   * Single properties shouldn't be lists turned into array just in time
