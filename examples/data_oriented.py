@@ -30,11 +30,9 @@ from collections import namedtuple
 #TODO make running examples not require path mangling
 import sys
 sys.path.append('..') #to get from examples to DOP
-from DOP import datadomain 
-ArrayAttribute = datadomain.ArrayAttribute
-SingleAttribute = datadomain.SingleAttribute
+from DOP.datadomain import DataDomain, ArrayAttribute, SingleAttribute
 
-class PolygonDomain(datadomain.DataDomain):
+class PolygonDomain(DataDomain):
     '''Data Domain for convex polygons to be rendered in pyglet
     TODO: push DOP related code to a DataDomain class and put polygon
     rendering specific code into a subclass'''
@@ -88,7 +86,6 @@ class PolygonDomain(datadomain.DataDomain):
       id =self._next_id 
       self._id2index_dict[id] = index
       self._next_id += 1
-
       return self.DataAccessor(self,id)
 
     def gen_data(self,pts): 
@@ -118,7 +115,6 @@ class PolygonDomain(datadomain.DataDomain):
 
         all_valid = self.get_selector()
         end = all_valid.stop   #TODO need a way to add slices/selectors togther 
-
         indices = self.indices[:end]
         indices.shape = (indices.shape[0],) #TODO 1D arrays shouldn't be (n,1) ?
         angles = self.angles.as_array()
@@ -158,10 +154,11 @@ class PolygonDomain(datadomain.DataDomain):
         gl.glEnableClientState(gl.GL_VERTEX_ARRAY)
         gl.glEnableClientState(gl.GL_COLOR_ARRAY)
 
+        all_valid=self.get_selector()
         #TODO verts._buffer.ctypes.data is awkward
         gl.glVertexPointer(2, self.vert_dtype.gl, 0, self.verts._buffer.ctypes.data)
         gl.glColorPointer(3,  self.color_dtype.gl, 0, self.colors._buffer.ctypes.data)
-        gl.glDrawArrays(gl.GL_TRIANGLE_STRIP, 0, len(self.verts._buffer)//2)
+        gl.glDrawArrays(gl.GL_TRIANGLE_STRIP, 0, len(self.verts[all_valid]))
 
 if __name__ == '__main__':
     width, height = 640,480
@@ -176,7 +173,7 @@ if __name__ == '__main__':
     ## Create shapes
     n=100
     positions = [(x*width,y*height) for x,y in np.random.random((n,2))]
-    poly_args = [(r*50,int(m*10)+2) for r,m in np.random.random((n,2))] 
+    poly_args = [(r*50,int(m*10)+3) for r,m in np.random.random((n,2))] 
     colors = np.random.random((n,3)).astype(test_domain.color_dtype.np)
 
 
