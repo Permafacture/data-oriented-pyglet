@@ -108,7 +108,7 @@ class DataDomain(object):
       self.indices = ArrayAttribute(size,1,np.int32)
 
       #arrayed data
-      self.array_attributes = []
+      self.array_attributes = [self.indices]
 
       #property data
       self.single_attributes = []
@@ -147,7 +147,7 @@ class DataDomain(object):
         # could be a mask.
         starts,sizes = self.allocator.get_allocated_regions()
         end = starts[-1]+sizes[-1]
-        return slice(0,end+1,1)
+        return slice(0,end,1)
 
 
     def add(self,*args,**kwargs):
