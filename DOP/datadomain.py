@@ -40,6 +40,9 @@ def _nearest_pow2(v):
     v |= v >> 16
     return v + 1
 
+#TODO: datadomain.arrayattributes.extend/append should assert that it is an
+#  array type, and that singles are the single type
+#TODO: rename single attributes to indexed attributes or broadcastable.
 class ArrayAttribute(object):
     '''holds a resize-able, re-allocateable, numpy array buffer
     for data that is many to one relationship with an object
