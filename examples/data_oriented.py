@@ -44,15 +44,15 @@ class PolygonDomain(DataDomain):
       super(PolygonDomain,self).__init__(size=size)
 
       #arrayed data
-      self.data = ArrayAttribute(size,5,np.float32)
-      self.verts = ArrayAttribute(size,2,self.vert_dtype.np)
-      self.colors = ArrayAttribute(size,3,self.color_dtype.np)
+      self.data = ArrayAttribute('data',size,5,np.float32)
+      self.verts = ArrayAttribute('verts',size,2,self.vert_dtype.np)
+      self.colors = ArrayAttribute('colors',size,3,self.color_dtype.np)
       self.array_attributes.extend([self.data,self.verts,self.colors])
 
       #property data
-      self.positions = SingleAttribute('position',2,np.float32)
-      self.angles = SingleAttribute('angle',1,np.float32)
-      self.single_attributes.extend([self.positions, self.angles])
+      self.position = SingleAttribute('position',2,np.float32)
+      self.angle = SingleAttribute('angle',1,np.float32)
+      self.single_attributes.extend([self.position, self.angle])
  
       self.DataAccessor = self.generate_accessor('PolygonDataAccessor')
 
@@ -71,22 +71,13 @@ class PolygonDomain(DataDomain):
       #TODO assert shape of pos and color
       pts = self.polyOfN(r,n)
       data = self.gen_data(pts)
-      n = len(data) 
+      colors = np.ones((len(data),3),self.color_dtype.np)*color
+      kwargs = {'position':position,
+                'colors':colors,
+                'data':data,
+                'angle':0}
+      return super(PolygonDomain,self).add(**kwargs)
 
-      start = self.safe_alloc(n)
-      selector = slice(start,start+n,1)
-      
-      index = self.positions.add(position)
-      self.angles.add(0)
-      self.indices[selector] = index
-
-      self.data[selector] = data
-      self.colors[selector] = color #relies on broadcasting
-
-      id =self._next_id 
-      self._id2index_dict[id] = index
-      self._next_id += 1
-      return self.DataAccessor(self,id)
 
     def gen_data(self,pts): 
         l = len(pts)
@@ -116,8 +107,8 @@ class PolygonDomain(DataDomain):
         all_valid = self.get_selector()
         end = all_valid.stop   #TODO need a way to add slices/selectors togther 
         indices = self.indices[:end]
-        angles = self.angles[:]
-        positions = self.positions[:]
+        angles = self.angle[:]
+        positions = self.position[:]
         cos_ts, sin_ts = cos(angles), sin(angles)
         cos_ts -= 1
         #here's a mouthfull.  see contruction of initial_data in init.  sum-difference folrmula applied 

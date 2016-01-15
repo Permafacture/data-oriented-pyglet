@@ -74,3 +74,8 @@ Some TODOs:
       resized.
   * Selectors will be important (layered slices and masks). 
       Provide clean functionality for them.
+  * I don't like that DataDomain.add requires that Attributes have name 
+      attributes that must equal the attributes they are assigned to.
+      ie: self.thisattr = ArrayAttribute('thisattr',...). Be DRY!
+  * Have DataDomain init call a finalize function that helps with DRYness
+      and conciseness.

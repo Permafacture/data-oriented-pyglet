@@ -59,8 +59,8 @@ class RenderableColoredTraingleStrips(DataDomain):
       self._registered_domains = [] #this should be DataDomain functionality
 
       #arrayed data
-      self.verts = ArrayAttribute(size,2,self.vert_dtype.np)
-      self.colors = ArrayAttribute(size,3,self.color_dtype.np)
+      self.verts = ArrayAttribute('verts',size,2,self.vert_dtype.np)
+      self.colors = ArrayAttribute('colors',size,3,self.color_dtype.np)
       self.array_attributes.extend([self.verts,self.colors])
 
       self.DataAccessor = self.generate_accessor('RenderableAccessor')
@@ -110,16 +110,16 @@ class RotateablePolygon(DataDomain):
       c_dtype = renderable_domain.color_dtype.np
 
       #arrayed data
-      self.data = ArrayAttribute(size,5,v_dtype)
+      self.data = ArrayAttribute('data',size,5,v_dtype)
       #self.color_cache=ArrayAttribute(size,3,cdtype)  TODO: use ColoredPolygon
       self.array_attributes.extend([self.data])
 
       #property data
-      self.positions = SingleAttribute('position',2,v_dtype)
-      self.angles = SingleAttribute('angle',1,v_dtype)
-      self.colors = SingleAttribute('color',3,c_dtype)
+      self.position = SingleAttribute('position',2,v_dtype)
+      self.angle = SingleAttribute('angle',1,v_dtype)
+      self.color = SingleAttribute('color',3,c_dtype)
 
-      self.single_attributes.extend([self.positions, self.angles, self.colors])
+      self.single_attributes.extend([self.position, self.angle, self.color])
  
       self.DataAccessor = self.generate_accessor('PolygonDataAccessor')
 
@@ -129,25 +129,15 @@ class RotateablePolygon(DataDomain):
         all_valid = self.get_selector()
         return self.data[all_valid].shape[0]
 
-    def add(self,pts,position=(0,0),color=(1,0,0)):
+    def add(self,pts,position=(0,0),color=(1,0,0),**kwargs):
       '''add a polygon defined by its pts'''
       #TODO assert shape of pos and color
       data = self.gen_data(pts)
-      n = len(data) 
-
-      start = self.safe_alloc(n)
-      selector = slice(start,start+n,1)
-      
-      index = self.positions.add(position)
-      self.angles.add(0)
-      self.colors.add(color)
-      self.indices[selector] = index #for broadcasting
-      self.data[selector] = data
-
-      id =self._next_id 
-      self._id2index_dict[id] = index
-      self._next_id += 1
-      return self.DataAccessor(self,id)
+      kwargs.update({'position':position,
+                     'color':color,
+                     'data':data,
+                     'angle':0})
+      return super(RotateablePolygon,self).add(**kwargs)
 
     def gen_data(self,pts): 
         l = len(pts)
@@ -188,8 +178,8 @@ class RotateablePolygon(DataDomain):
 
         indices = self.indices[:local_end]
         #indices.shape = (indices.shape[0],) #TODO 1D arrays shouldn't be (n,1) ?
-        angles = self.angles[:]
-        positions = self.positions[:]
+        angles = self.angle[:]
+        positions = self.position[:]
         cos_ts, sin_ts = cos(angles), sin(angles)
         cos_ts -= 1
         #here's a mouthfull.  see contruction of initial_data in init.  sum-difference folrmula applied 
@@ -224,7 +214,7 @@ class RotateablePolygon(DataDomain):
         domain_selector = slice(domain_start,domain_end,1)
         indices = self.indices[:local_end]
         #indices.shape = (indices.shape[0],) #TODO 1D arrays shouldn't be (n,1) ?
-        local_colors = self.colors[:]
+        local_colors = self.color[:]
         colors[domain_selector] = local_colors[indices]
 
 class ColorChangingRotateablePolygon(RotateablePolygon):
@@ -232,30 +222,20 @@ class ColorChangingRotateablePolygon(RotateablePolygon):
 
     def __init__(self,*args,**kwargs):
         super(ColorChangingRotateablePolygon,self).__init__(*args,**kwargs)
-        self.intensities = SingleAttribute('intensity',1,np.float32)
-        self.single_attributes.append(self.intensities)
+        self.intensity = SingleAttribute('intensity',1,np.float32)
+        self.single_attributes.append(self.intensity)
         self.DataAccessor = self.generate_accessor('ColorChangingPolygonAccessor')
 
     def add(self,pts,position=(0,0),color=(1,0,0),intensity=1):
       '''add a polygon defined by its pts'''
       #TODO assert shape of pos and color
       data = self.gen_data(pts)
-      n = len(data) 
-
-      start = self.safe_alloc(n)
-      selector = slice(start,start+n,1)
-      
-      index = self.positions.add(position)
-      self.angles.add(0)
-      self.colors.add(color)
-      self.intensities.add(intensity)
-      self.indices[selector] = index #for broadcasting
-
-      self.data[selector] = data
-      id =self._next_id 
-      self._id2index_dict[id] = index
-      self._next_id += 1
-      return self.DataAccessor(self,id)
+      kwargs = {'position':position,
+                'color':color,
+                'intensity':intensity, 
+                'data':data,
+                'angle':0}
+      return super(ColorChangingRotateablePolygon,self).add(pts,**kwargs)
 
     def update_colors(self,start,colors):
         #TODO, this is repeated code. make a function for selectors
@@ -265,7 +245,7 @@ class ColorChangingRotateablePolygon(RotateablePolygon):
         domain_selector = slice(domain_start,domain_end,1)
         indices = self.indices[:local_end]
         #indices.shape = (indices.shape[0]) #TODO 1D arrays shouldn't be (n,1) ?
-        local_colors = self.colors[:] * self.intensities[:,None]
+        local_colors = self.color[:] * self.intensity[:,None]
         colors[domain_selector] = local_colors[indices]
 
 class RegularPolygonAdder(object):
