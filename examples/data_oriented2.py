@@ -115,9 +115,9 @@ class RotateablePolygon(DataDomain):
       self.array_attributes.extend([self.data])
 
       #property data
-      self.positions = SingleAttribute('position',np.float32)
-      self.angles = SingleAttribute('angle',c_dtype)
-      self.colors = SingleAttribute('color',np.float32)
+      self.positions = SingleAttribute('position',2,v_dtype)
+      self.angles = SingleAttribute('angle',1,v_dtype)
+      self.colors = SingleAttribute('color',3,c_dtype)
 
       self.single_attributes.extend([self.positions, self.angles, self.colors])
  
@@ -188,8 +188,8 @@ class RotateablePolygon(DataDomain):
 
         indices = self.indices[:local_end]
         #indices.shape = (indices.shape[0],) #TODO 1D arrays shouldn't be (n,1) ?
-        angles = self.angles.as_array()
-        positions = self.positions.as_array()
+        angles = self.angles[:]
+        positions = self.positions[:]
         cos_ts, sin_ts = cos(angles), sin(angles)
         cos_ts -= 1
         #here's a mouthfull.  see contruction of initial_data in init.  sum-difference folrmula applied 
@@ -224,7 +224,7 @@ class RotateablePolygon(DataDomain):
         domain_selector = slice(domain_start,domain_end,1)
         indices = self.indices[:local_end]
         #indices.shape = (indices.shape[0],) #TODO 1D arrays shouldn't be (n,1) ?
-        local_colors = self.colors.as_array()
+        local_colors = self.colors[:]
         colors[domain_selector] = local_colors[indices]
 
 class ColorChangingRotateablePolygon(RotateablePolygon):
@@ -232,7 +232,7 @@ class ColorChangingRotateablePolygon(RotateablePolygon):
 
     def __init__(self,*args,**kwargs):
         super(ColorChangingRotateablePolygon,self).__init__(*args,**kwargs)
-        self.intensities = SingleAttribute('intensity',np.float32)
+        self.intensities = SingleAttribute('intensity',1,np.float32)
         self.single_attributes.append(self.intensities)
         self.DataAccessor = self.generate_accessor('ColorChangingPolygonAccessor')
 
@@ -265,7 +265,7 @@ class ColorChangingRotateablePolygon(RotateablePolygon):
         domain_selector = slice(domain_start,domain_end,1)
         indices = self.indices[:local_end]
         #indices.shape = (indices.shape[0]) #TODO 1D arrays shouldn't be (n,1) ?
-        local_colors = self.colors.as_array() * self.intensities.as_array()[:,None]
+        local_colors = self.colors[:] * self.intensities[:,None]
         colors[domain_selector] = local_colors[indices]
 
 class RegularPolygonAdder(object):

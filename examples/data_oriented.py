@@ -50,8 +50,8 @@ class PolygonDomain(DataDomain):
       self.array_attributes.extend([self.data,self.verts,self.colors])
 
       #property data
-      self.positions = SingleAttribute('position',np.float32)
-      self.angles = SingleAttribute('angle',np.float32)
+      self.positions = SingleAttribute('position',2,np.float32)
+      self.angles = SingleAttribute('angle',1,np.float32)
       self.single_attributes.extend([self.positions, self.angles])
  
       self.DataAccessor = self.generate_accessor('PolygonDataAccessor')
@@ -116,8 +116,8 @@ class PolygonDomain(DataDomain):
         all_valid = self.get_selector()
         end = all_valid.stop   #TODO need a way to add slices/selectors togther 
         indices = self.indices[:end]
-        angles = self.angles.as_array()
-        positions = self.positions.as_array()
+        angles = self.angles[:]
+        positions = self.positions[:]
         cos_ts, sin_ts = cos(angles), sin(angles)
         cos_ts -= 1
         #here's a mouthfull.  see contruction of initial_data in init.  sum-difference folrmula applied 

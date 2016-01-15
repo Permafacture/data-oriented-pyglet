@@ -74,4 +74,3 @@ Some TODOs:
       resized.
   * Selectors will be important (layered slices and masks). 
       Provide clean functionality for them.
-  * Single properties shouldn't be lists turned into array just in time

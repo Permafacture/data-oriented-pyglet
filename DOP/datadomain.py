@@ -82,12 +82,14 @@ class SingleAttribute(object):
     for data that is one to one relationship with an object.
     TODO: make reallocateable (ie, for deletions)'''
 
-    def __init__(self,name,dtype):
+    def __init__(self,name,dim,dtype):
       '''dtype -> numpy data type for array representation
          name -> property name to access from DataOriented Object'''
       self.name = name
+      assert dim>=1, "SingleAttribute dimension: %s not >= 1" % (dim, )  
+      self._dim = dim
       self.dtype=dtype
-      self._buffer = list()
+      self._buffer = np.array([],dtype=dtype)
 
     def __getitem__(self,selector):
       return self._buffer[selector]
@@ -96,11 +98,14 @@ class SingleAttribute(object):
       self._buffer[selector]=data
 
     def add(self,item):
-      self._buffer.append(item)
-      return len(self._buffer)-1 #return idx
-
-    def as_array(self):
-      return np.array(self._buffer,dtype=self.dtype)
+      dim = self._dim
+      if dim == 1:
+        shape = (self._buffer.shape[0]+1,)
+      else :
+        shape = (self._buffer.shape[0]+1,dim)
+      self._buffer.resize(shape)
+      self._buffer[-1] = item
+      return len(self._buffer) -1
 
     def __repr__(self):
       return self.name
