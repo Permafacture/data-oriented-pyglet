@@ -142,7 +142,6 @@ class RotateablePolygon(DataDomain):
       self.angles.add(0)
       self.colors.add(color)
       self.indices[selector] = index #for broadcasting
-
       self.data[selector] = data
 
       id =self._next_id 
@@ -188,7 +187,7 @@ class RotateablePolygon(DataDomain):
         domain_selector = slice(domain_start,domain_end,1)
 
         indices = self.indices[:local_end]
-        indices.shape = (indices.shape[0],) #TODO 1D arrays shouldn't be (n,1) ?
+        #indices.shape = (indices.shape[0],) #TODO 1D arrays shouldn't be (n,1) ?
         angles = self.angles.as_array()
         positions = self.positions.as_array()
         cos_ts, sin_ts = cos(angles), sin(angles)
@@ -198,7 +197,7 @@ class RotateablePolygon(DataDomain):
         xs, ys, rs, xhelpers, yhelpers = (initiald[:local_end,x] for x in range(5))
        
         pts = verts  #directly accessing arrays to be rendered
-        
+       
         pts[domain_selector,0] = xhelpers*cos_ts[indices]  #this is how singles are broadcast to plurals
         pts[domain_selector,1] = yhelpers*sin_ts[indices]      
         pts[domain_selector,0] -= pts[domain_selector,1]                 
@@ -224,7 +223,7 @@ class RotateablePolygon(DataDomain):
         domain_end = local_end+start
         domain_selector = slice(domain_start,domain_end,1)
         indices = self.indices[:local_end]
-        indices.shape = (indices.shape[0],) #TODO 1D arrays shouldn't be (n,1) ?
+        #indices.shape = (indices.shape[0],) #TODO 1D arrays shouldn't be (n,1) ?
         local_colors = self.colors.as_array()
         colors[domain_selector] = local_colors[indices]
 
@@ -265,7 +264,7 @@ class ColorChangingRotateablePolygon(RotateablePolygon):
         domain_end = local_end+start
         domain_selector = slice(domain_start,domain_end,1)
         indices = self.indices[:local_end]
-        indices.shape = (indices.shape[0]) #TODO 1D arrays shouldn't be (n,1) ?
+        #indices.shape = (indices.shape[0]) #TODO 1D arrays shouldn't be (n,1) ?
         local_colors = self.colors.as_array() * self.intensities.as_array()[:,None]
         colors[domain_selector] = local_colors[indices]
 

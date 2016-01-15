@@ -53,7 +53,14 @@ class ArrayAttribute(object):
       #TODO: might could alternatively instatiate with an existing numpy array?
       self.datatype=dtype #calling this dtype would be confusing because this is not a numpy array!
       self._dim = dim
-      self._buffer = np.empty((size,dim),dtype=dtype) #*np.NAN #oops, changes dtype!
+      if dim == 1:
+        self._buffer = np.empty(size,dtype=dtype) #shape = (size,) not (size,1)
+        self.resize = self._resize_singledim
+      elif dim > 1:
+        self._buffer = np.empty((size,dim),dtype=dtype) #shape = (size,dim)
+        self.resize = self._resize_multidim
+      else:
+        raise ValueError('''ArrayAttribute dim must be >= 1''')
 
     def __getitem__(self,selector):
       #print "get buffer",self.datatype,self._buffer.dtype #TODO assert this
@@ -64,8 +71,11 @@ class ArrayAttribute(object):
       self._buffer[selector]=data
       #print "set buffer2",self.datatype,self._buffer.dtype
 
-    def resize(self,count):
+    def _resize_multidim(self,count):
       self._buffer.resize((count,self._dim))
+
+    def _resize_singledim(self,count):
+      self._buffer.resize(count)
 
 class SingleAttribute(object):
     '''holds a resize-able, re-allocateable, buffer
@@ -156,20 +166,20 @@ class DataDomain(object):
     def add(self,*args,**kwargs):
       '''add an instance of properties to the domain.
       returns a data accessor to allow for interaction with this instance of 
-      data.  Generally:
+      data.'''  
 
-          start = self._safe_alloc(n)
-          selector = slice(start,start+n,1)
-      
-          index = self.single_property1.add(val)
-          self.indices[selector] = index #for broadcasting single to arrayed
+      start = self._safe_alloc(n)
+      selector = slice(start,start+n,1)
+  
+      index = self.single_property1.add(val)
+      self.indices[selector] = index #for broadcasting single to arrayed
 
-          self.arrayed_property1[selector] = vals
-          self.arrayed_property2[selector] = val #relies on broadcasting
+      self.arrayed_property1[selector] = vals
+      self.arrayed_property2[selector] = val #relies on broadcasting
 
-          id =self._next_id 
-          self._id2index_dict[id] = index
-          self._next_id += 1
+      id =self._next_id 
+      self._id2index_dict[id] = index
+      self._next_id += 1
 
-          return self.DataAccessor(self,id)'''
+      return self.DataAccessor(self,id)
 

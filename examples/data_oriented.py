@@ -47,7 +47,7 @@ class PolygonDomain(DataDomain):
       self.data = ArrayAttribute(size,5,np.float32)
       self.verts = ArrayAttribute(size,2,self.vert_dtype.np)
       self.colors = ArrayAttribute(size,3,self.color_dtype.np)
-      self.array_attributes.extend([self.indices,self.data,self.verts,self.colors])
+      self.array_attributes.extend([self.data,self.verts,self.colors])
 
       #property data
       self.positions = SingleAttribute('position',np.float32)
@@ -116,7 +116,6 @@ class PolygonDomain(DataDomain):
         all_valid = self.get_selector()
         end = all_valid.stop   #TODO need a way to add slices/selectors togther 
         indices = self.indices[:end]
-        indices.shape = (indices.shape[0],) #TODO 1D arrays shouldn't be (n,1) ?
         angles = self.angles.as_array()
         positions = self.positions.as_array()
         cos_ts, sin_ts = cos(angles), sin(angles)
