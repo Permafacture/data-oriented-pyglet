@@ -2,6 +2,9 @@
 Second example showing a Data Oriented ORM which registers sub domains 
 within other domains, ie: heirarchical data domains
 
+Sub-domains directly update thier region of the parent domain for 
+ best performance.
+
 This file is part of Data Oriented Python.
 Copyright (C) 2016 Elliot Hallmark (permfacture@gmail.com)
 
@@ -75,7 +78,8 @@ class RenderableColoredTraingleStrips(DataDomain):
         for domain in self._registered_domains:
           n = domain.how_many()
           start = self.safe_alloc(n)
-          domain.update(start,self.colors,self.verts)
+          selector = slice(start,start+n,1)
+          domain.update(self.colors[selector],self.verts[selector])
 
     def draw(self):
         gl.glClearColor(0.2, 0.4, 0.5, 1.0)
@@ -125,6 +129,10 @@ class RotateablePolygon(DataDomain):
 
 
     def how_many(self):
+        '''return the length of the region of memory this domain is able
+        to update, so that the parent domain can allocate space within its
+        arrays and provide direct access to the area of memory this domain
+        will be allowed to modify'''
         return self.as_array(self.data).shape[0]
 
     def add(self,pts,position=(0,0),color=(1,0,0),**kwargs):
@@ -157,11 +165,11 @@ class RotateablePolygon(DataDomain):
         return [(pt[0],pt[1],sqrt(pt[0]**2+pt[1]**2),
               cos(atan2(pt[1],pt[0])),sin(atan2(pt[1],pt[0]))) for pt in wound]
 
-    def update(self,start,colors,verts):
-        self.update_vertices(start,verts)
-        self.update_colors(start,colors)
+    def update(self,colors,verts):
+        self.update_vertices(verts)
+        self.update_colors(colors)
 
-    def update_vertices(self,start,verts):
+    def update_vertices(self,verts):
         '''Update vertices to render based on positions and angles communicated
         through the data accessors'''
         as_array = self.as_array
@@ -173,10 +181,6 @@ class RotateablePolygon(DataDomain):
         angles = as_array(self.angle)
         positions = as_array(self.position)
 
-        domain_start = start
-        domain_end = len(initiald)+start
-        domain_selector = slice(domain_start,domain_end,1)
-
         cos_ts, sin_ts = cos(angles), sin(angles)
         cos_ts -= 1
         #here's a mouthfull.  see contruction of initial_data in init.  sum-difference folrmula applied 
@@ -185,26 +189,23 @@ class RotateablePolygon(DataDomain):
        
         pts = verts  #directly accessing arrays to be rendered
        
-        pts[domain_selector,0] = xhelpers*cos_ts
-        pts[domain_selector,1] = yhelpers*sin_ts
-        pts[domain_selector,0] -= pts[domain_selector,1]                 
-        pts[domain_selector,0] *= rs                
-        pts[domain_selector,0] += xs                
-        pts[domain_selector,0] += positions[:,0]
+        pts[:,0] = xhelpers*cos_ts
+        pts[:,1] = yhelpers*sin_ts
+        pts[:,0] -= pts[:,1]                 
+        pts[:,0] *= rs                
+        pts[:,0] += xs                
+        pts[:,0] += positions[:,0]
 
-        pts[domain_selector,1] = yhelpers*cos_ts
+        pts[:,1] = yhelpers*cos_ts
         tmp = xhelpers*sin_ts
-        pts[domain_selector,1] += tmp
-        pts[domain_selector,1] *= rs
-        pts[domain_selector,1] += ys
-        pts[domain_selector,1] += positions[:,1]
+        pts[:,1] += tmp
+        pts[:,1] *= rs
+        pts[:,1] += ys
+        pts[:,1] += positions[:,1]
 
-    def update_colors(self,start,colors):
+    def update_colors(self,colors):
         local_colors = self.as_array(self.color)
-        domain_start = start
-        domain_end = len(local_colors)+start
-        domain_selector = slice(domain_start,domain_end,1)
-        colors[domain_selector] = local_colors
+        colors[:] = local_colors #[:] needed to assign data into array
 
 class ColorChangingRotateablePolygon(RotateablePolygon):
     '''add ability to change color from black to self.color'''
@@ -226,15 +227,12 @@ class ColorChangingRotateablePolygon(RotateablePolygon):
                 'angle':0}
       return super(ColorChangingRotateablePolygon,self).add(pts,**kwargs)
 
-    def update_colors(self,start,colors):
+    def update_colors(self,colors):
         as_array = self.as_array
-        local_colors = as_array(self.color) * as_array(self.intensity)[:,None]
-        domain_start = start
-        domain_end = len(local_colors)+start
-        domain_selector = slice(domain_start,domain_end,1)
         #TODO, again it would be more efficient to work with the raw
         # BroadcastableAttributes first before broadcasting.
-        colors[domain_selector] = local_colors
+        local_colors = as_array(self.color) * as_array(self.intensity)[:,None]
+        colors[:] = local_colors
 
 class RegularPolygonAdder(object):
     '''Shortcut for adding polygons'''
