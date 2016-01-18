@@ -30,7 +30,7 @@ from collections import namedtuple
 #TODO make running examples not require path mangling
 import sys
 sys.path.append('..') #to get from examples to DOP
-from DOP.datadomain import DataDomain, ArrayAttribute, SingleAttribute
+from DOP.datadomain import DataDomain, ArrayAttribute, BroadcastableAttribute
 
 class PolygonDomain(DataDomain):
     '''Data Domain for convex polygons to be rendered in pyglet
@@ -50,9 +50,9 @@ class PolygonDomain(DataDomain):
       self.array_attributes.extend([self.data,self.verts,self.colors])
 
       #property data
-      self.position = SingleAttribute('position',2,np.float32)
-      self.angle = SingleAttribute('angle',1,np.float32)
-      self.single_attributes.extend([self.position, self.angle])
+      self.position = BroadcastableAttribute('position',2,np.float32)
+      self.angle = BroadcastableAttribute('angle',1,np.float32)
+      self.broadcastable_attributes.extend([self.position, self.angle])
  
       self.DataAccessor = self.generate_accessor('PolygonDataAccessor')
 
@@ -102,39 +102,31 @@ class PolygonDomain(DataDomain):
     def update_vertices(self):
         '''Update vertices to render based on positions and angles communicated
         through the data accessors'''
-        initiald = self.data
 
-        all_valid = self.get_selector()
-        end = all_valid.stop   #TODO need a way to add slices/selectors togther 
-        indices = self.indices[:end]
-        angles = self.angle[:]
-        positions = self.position[:]
+        as_array = self.as_array
+        pts = as_array(self.verts)
+        initiald = as_array(self.data)
+        angles = as_array(self.angle)
+        positions = as_array(self.position)
         cos_ts, sin_ts = cos(angles), sin(angles)
         cos_ts -= 1
         #here's a mouthfull.  see contruction of initial_data in init.  sum-difference folrmula applied 
         #and simplified.  work it out on paper if you don't believe me.
-        xs, ys, rs, xhelpers, yhelpers = (initiald[:end,x] for x in range(5))
+        xs, ys, rs, xhelpers, yhelpers = (initiald[:,x] for x in range(5))
        
-        pts = self.verts
-        
+        pts[:,0] = xhelpers*cos_ts
+        pts[:,1] = yhelpers*sin_ts      
+        pts[:,0] -= pts[:,1]                 
+        pts[:,0] *= rs                
+        pts[:,0] += xs                
+        pts[:,0] += positions[:,0]
 
-        pts[:end,0] = xhelpers*cos_ts[indices]  #this is how singles are broadcast to plurals
-        pts[:end,1] = yhelpers*sin_ts[indices]      
-        pts[:end,0] -= pts[:end,1]                 
-        pts[:end,0] *= rs                
-        pts[:end,0] += xs                
-        pts[:end,0] += positions[indices,0]
-
-        pts[:end,1] = yhelpers*cos_ts[indices]
-        tmp = xhelpers*sin_ts[indices]
-        pts[:end,1] += tmp
-        pts[:end,1] *= rs
-        pts[:end,1] += ys
-        pts[:end,1] += positions[indices,1]
-
-        #flatten and return as correct type
-        #pts.shape = ( reduce(lambda xx,yy: xx*yy, pts.shape), )
-        #return pts.astype(vert_dtype.np_type)
+        pts[:,1] = yhelpers*cos_ts
+        tmp = xhelpers*sin_ts
+        pts[:,1] += tmp
+        pts[:,1] *= rs
+        pts[:,1] += ys
+        pts[:,1] += positions[:,1]
 
     def draw(self):
         gl.glClearColor(0.2, 0.4, 0.5, 1.0)
@@ -144,11 +136,11 @@ class PolygonDomain(DataDomain):
         gl.glEnableClientState(gl.GL_VERTEX_ARRAY)
         gl.glEnableClientState(gl.GL_COLOR_ARRAY)
 
-        all_valid=self.get_selector()
+        n = len(self.as_array(self.verts))
         #TODO verts._buffer.ctypes.data is awkward
         gl.glVertexPointer(2, self.vert_dtype.gl, 0, self.verts._buffer.ctypes.data)
         gl.glColorPointer(3,  self.color_dtype.gl, 0, self.colors._buffer.ctypes.data)
-        gl.glDrawArrays(gl.GL_TRIANGLE_STRIP, 0, len(self.verts[all_valid]))
+        gl.glDrawArrays(gl.GL_TRIANGLE_STRIP, 0, n)
 
 if __name__ == '__main__':
     width, height = 640,480

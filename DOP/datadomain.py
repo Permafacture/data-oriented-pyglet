@@ -41,7 +41,7 @@ def _nearest_pow2(v):
     return v + 1
 
 #TODO: datadomain.arrayattributes.extend/append should assert that it is an
-#  array type, and that singles are the single type
+#  array type, and that broadcastables are the broadcastable type
 #TODO: rename single attributes to indexed attributes or broadcastable.
 class ArrayAttribute(object):
     '''holds a resize-able, re-allocateable, numpy array buffer
@@ -78,7 +78,7 @@ class ArrayAttribute(object):
     def _resize_singledim(self,count):
       self._buffer.resize(count)
 
-class SingleAttribute(object):
+class BroadcastableAttribute(object):
     '''holds a resize-able, re-allocateable, buffer
     for data that is one to one relationship with an object.
     TODO: make reallocateable (ie, for deletions)'''
@@ -87,7 +87,7 @@ class SingleAttribute(object):
       '''dtype -> numpy data type for array representation
          name -> property name to access from DataOriented Object'''
       self.name = name
-      assert dim>=1, "SingleAttribute dimension: %s not >= 1" % (dim, )  
+      assert dim>=1, "BroadcastableAttribute dimension: %s not >= 1" % (dim, )  
       self._dim = dim
       self.datatype=dtype
       self._buffer = np.array([],dtype=dtype)
@@ -130,7 +130,7 @@ class DataDomain(object):
       self.array_attributes = [self.indices]
 
       #property data
-      self.single_attributes = []
+      self.broadcastable_attributes = []
  
       #__init__ of subclasses should do this:
       #self.DataAccessor = self.generate_accessor('GenericDataAccessor')
@@ -150,15 +150,16 @@ class DataDomain(object):
     def generate_accessor(self,name):
         '''construct the DataAccessor specific for this DataDomain'''
         return data_accessor_factory(name,self,
-                        self.array_attributes,self.single_attributes)
+                        self.array_attributes,self.broadcastable_attributes)
  
 
     def index_from_id(self,id):
         return self._id2index_dict[id]
 
-    def get_selector(self):
-        '''return a slice or mask that can be used to access only the valid
-        portions of the buffers'''
+    def as_array(self,attr):
+        '''helper function to return the valid portions of the attribute 
+        buffer.  BroadcastableAttributes are broadcasted to be used with
+        the ArrayAttributes here'''
         #TODO allocator should return a selector for valid memory locations
         # initially, since all data will be tightly packed, this can be a slice.
         # eventually, if Data Oriented Objects become resizeable and thus have
@@ -166,8 +167,10 @@ class DataDomain(object):
         # could be a mask.
         starts,sizes = self.allocator.get_allocated_regions()
         end = starts[-1]+sizes[-1]
-        return slice(0,end,1)
-
+        if isinstance(attr,ArrayAttribute):
+          return attr[:end]
+        elif isinstance(attr,BroadcastableAttribute):
+          return attr[self.indices[:end]]
 
     def add(self,*args,**kwargs):
       '''add an instance of properties to the domain.
@@ -175,18 +178,18 @@ class DataDomain(object):
       data.'''  
       
       #TODO tidy this up by making a finalize method that __init__ calls that
-      # creates the DataAccessor and sets of arrayed and single names.
+      # creates the DataAccessor and sets of arrayed and broadcastable names.
       # finalize might also handle discovering if this domain has any
-      # SingleAttributes and decide between two `add`s, where one expects 
-      # not to have SingleAttributes and the other does.  ie: no indices
-      # right now, assumes at least one SingleAttribute
+      # BroadcastableAttributes and decide between two `add`s, where one expects 
+      # not to have BroadcastableAttributes and the other does.  ie: no indices
+      # right now, assumes at least one BroadcastableAttribute
       n = None; index = None
       arrayed_names = {attr.name for attr in self.array_attributes}
-      single_names  = {attr.name for attr in self.single_attributes}
-      assert single_names, "DataDomains without one SingleAttribute not yet supported"
+      broadcastable_names  = {attr.name for attr in self.broadcastable_attributes}
+      assert broadcastable_names, "DataDomains without one BroadcastableAttribute not yet supported"
 
       for key,val in kwargs.items():
-        if key in single_names:
+        if key in broadcastable_names:
           if index is None:
             index = getattr(self,key).add(val)
           else:

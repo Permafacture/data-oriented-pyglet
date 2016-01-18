@@ -48,7 +48,7 @@ further improvement using Cython or Numba's `vectorize` decorator.
 Some thoughts and questions:
 
   * What is a better name for this project?
-  * what is a better name for "arrayed" and "single" properties?
+  * what is a better name for "arrayed" and "broadcastable" properties?
   * Should it be as easy for users to access arrayed properties through
       the data accessor as single properties?  Are arrayed properties just
       data domain implementation details while the data accessor mostly
@@ -61,8 +61,6 @@ Some thoughts and questions:
 
 Some TODOs:
 
-  * ArrayAttributes should know what data is valid and return only that
-      (leaving it to the user to always slice for valid data is error prone) 
   * Use a heirarchical structure of domains, where each sub domain registers
       itself with the parent domain and provides the expected interface
       so the parent domain can iterate through its registered sub domains

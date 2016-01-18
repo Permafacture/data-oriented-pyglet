@@ -32,7 +32,7 @@ from collections import namedtuple
 #TODO make running examples not require path mangling
 import sys
 sys.path.append('..') #to get from examples to DOP
-from DOP.datadomain import DataDomain, ArrayAttribute, SingleAttribute
+from DOP.datadomain import DataDomain, ArrayAttribute, BroadcastableAttribute
 
 class RenderableColoredTraingleStrips(DataDomain):
     '''Data Domain for rendering colored triangle strips
@@ -85,11 +85,11 @@ class RenderableColoredTraingleStrips(DataDomain):
         gl.glEnableClientState(gl.GL_VERTEX_ARRAY)
         gl.glEnableClientState(gl.GL_COLOR_ARRAY)
 
-        all_valid=self.get_selector()
+        n = len(self.as_array(self.verts))
         #TODO verts._buffer.ctypes.data is awkward
         gl.glVertexPointer(2, self.vert_dtype.gl, 0, self.verts._buffer.ctypes.data)
         gl.glColorPointer(3,  self.color_dtype.gl, 0, self.colors._buffer.ctypes.data)
-        gl.glDrawArrays(gl.GL_TRIANGLE_STRIP, 0, len(self.verts[all_valid]))
+        gl.glDrawArrays(gl.GL_TRIANGLE_STRIP, 0, n)
 
 class Polygon(DataDomain):
     '''I'm thinking it would be nice to have a class to tie together the 
@@ -115,19 +115,17 @@ class RotateablePolygon(DataDomain):
       self.array_attributes.extend([self.data])
 
       #property data
-      self.position = SingleAttribute('position',2,v_dtype)
-      self.angle = SingleAttribute('angle',1,v_dtype)
-      self.color = SingleAttribute('color',3,c_dtype)
+      self.position = BroadcastableAttribute('position',2,v_dtype)
+      self.angle = BroadcastableAttribute('angle',1,v_dtype)
+      self.color = BroadcastableAttribute('color',3,c_dtype)
 
-      self.single_attributes.extend([self.position, self.angle, self.color])
+      self.broadcastable_attributes.extend([self.position, self.angle, self.color])
  
       self.DataAccessor = self.generate_accessor('PolygonDataAccessor')
 
 
     def how_many(self):
-        #TODO awkward here and elsewhere
-        all_valid = self.get_selector()
-        return self.data[all_valid].shape[0]
+        return self.as_array(self.data).shape[0]
 
     def add(self,pts,position=(0,0),color=(1,0,0),**kwargs):
       '''add a polygon defined by its pts'''
@@ -166,64 +164,55 @@ class RotateablePolygon(DataDomain):
     def update_vertices(self,start,verts):
         '''Update vertices to render based on positions and angles communicated
         through the data accessors'''
-        initiald = self.data
+        as_array = self.as_array
 
-        #TODO farm the generation of selectors out to a function
-        all_valid = self.get_selector()
-        local_end = all_valid.stop   #TODO need a way to add slices/selectors togther 
+        initiald = as_array(self.data)
+        #TODO: would be more efficient to operate on the BroadcastableAttributes
+        # prior to broadcasting.  How to offer this flexibility without
+        # complicating the interface?  going with less efficient for now
+        angles = as_array(self.angle)
+        positions = as_array(self.position)
 
         domain_start = start
-        domain_end = local_end+start
+        domain_end = len(initiald)+start
         domain_selector = slice(domain_start,domain_end,1)
 
-        indices = self.indices[:local_end]
-        #indices.shape = (indices.shape[0],) #TODO 1D arrays shouldn't be (n,1) ?
-        angles = self.angle[:]
-        positions = self.position[:]
         cos_ts, sin_ts = cos(angles), sin(angles)
         cos_ts -= 1
         #here's a mouthfull.  see contruction of initial_data in init.  sum-difference folrmula applied 
         #and simplified.  work it out on paper if you don't believe me.
-        xs, ys, rs, xhelpers, yhelpers = (initiald[:local_end,x] for x in range(5))
+        xs, ys, rs, xhelpers, yhelpers = (initiald[:,x] for x in range(5))
        
         pts = verts  #directly accessing arrays to be rendered
        
-        pts[domain_selector,0] = xhelpers*cos_ts[indices]  #this is how singles are broadcast to plurals
-        pts[domain_selector,1] = yhelpers*sin_ts[indices]      
+        pts[domain_selector,0] = xhelpers*cos_ts
+        pts[domain_selector,1] = yhelpers*sin_ts
         pts[domain_selector,0] -= pts[domain_selector,1]                 
         pts[domain_selector,0] *= rs                
         pts[domain_selector,0] += xs                
-        pts[domain_selector,0] += positions[indices,0]
+        pts[domain_selector,0] += positions[:,0]
 
-        pts[domain_selector,1] = yhelpers*cos_ts[indices]
-        tmp = xhelpers*sin_ts[indices]
+        pts[domain_selector,1] = yhelpers*cos_ts
+        tmp = xhelpers*sin_ts
         pts[domain_selector,1] += tmp
         pts[domain_selector,1] *= rs
         pts[domain_selector,1] += ys
-        pts[domain_selector,1] += positions[indices,1]
-
-        #flatten and return as correct type
-        #pts.shape = ( reduce(lambda xx,yy: xx*yy, pts.shape), )
-        #return pts.astype(vert_dtype.np_type)
+        pts[domain_selector,1] += positions[:,1]
 
     def update_colors(self,start,colors):
-        #TODO, this is repeated code. make a function for selectors
-        local_end = self.get_selector().stop
+        local_colors = self.as_array(self.color)
         domain_start = start
-        domain_end = local_end+start
+        domain_end = len(local_colors)+start
         domain_selector = slice(domain_start,domain_end,1)
-        indices = self.indices[:local_end]
-        #indices.shape = (indices.shape[0],) #TODO 1D arrays shouldn't be (n,1) ?
-        local_colors = self.color[:]
-        colors[domain_selector] = local_colors[indices]
+        colors[domain_selector] = local_colors
 
 class ColorChangingRotateablePolygon(RotateablePolygon):
     '''add ability to change color from black to self.color'''
 
     def __init__(self,*args,**kwargs):
         super(ColorChangingRotateablePolygon,self).__init__(*args,**kwargs)
-        self.intensity = SingleAttribute('intensity',1,np.float32)
-        self.single_attributes.append(self.intensity)
+        self.intensity = BroadcastableAttribute('intensity',1,np.float32)
+        self.broadcastable_attributes.append(self.intensity)
         self.DataAccessor = self.generate_accessor('ColorChangingPolygonAccessor')
 
     def add(self,pts,position=(0,0),color=(1,0,0),intensity=1):
@@ -238,15 +227,14 @@ class ColorChangingRotateablePolygon(RotateablePolygon):
       return super(ColorChangingRotateablePolygon,self).add(pts,**kwargs)
 
     def update_colors(self,start,colors):
-        #TODO, this is repeated code. make a function for selectors
-        local_end = self.get_selector().stop
+        as_array = self.as_array
+        local_colors = as_array(self.color) * as_array(self.intensity)[:,None]
         domain_start = start
-        domain_end = local_end+start
+        domain_end = len(local_colors)+start
         domain_selector = slice(domain_start,domain_end,1)
-        indices = self.indices[:local_end]
-        #indices.shape = (indices.shape[0]) #TODO 1D arrays shouldn't be (n,1) ?
-        local_colors = self.color[:] * self.intensity[:,None]
-        colors[domain_selector] = local_colors[indices]
+        #TODO, again it would be more efficient to work with the raw
+        # BroadcastableAttributes first before broadcasting.
+        colors[domain_selector] = local_colors
 
 class RegularPolygonAdder(object):
     '''Shortcut for adding polygons'''
