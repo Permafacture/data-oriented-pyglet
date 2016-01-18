@@ -44,11 +44,10 @@ class RenderableColoredTraingleStrips(DataDomain):
     interface:
   
       how_many() -> returns n = number of vertex/color pairs to render
-      update(start, colors, verts) -> take arrays colors and verts and 
-        insert n colors and verts into those arrays respecting `start`
-        as the begining of the section of memory it may write two.
-        exceeding n vertices and/or colors has undefined behaviour 
-        and may crash the program.
+ 
+      update(colors, verts) -> take arrays colors and verts and 
+        insert n colors and verts into those arrays where n is what
+        `how_many` reported. 
 
       additionally, subdomains should know and respect the vert_dtype
       and color_dtype properties of this domain'''
