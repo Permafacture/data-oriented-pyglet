@@ -32,10 +32,7 @@ import pyglet
 from pyglet import gl
 from collections import namedtuple
 
-#TODO make running examples not require path mangling
-import sys
-sys.path.append('..') #to get from examples to DOP
-from DOP.datadomain import DataDomain, ArrayAttribute, BroadcastableAttribute
+from data_oriented.datadomain import DataDomain, ArrayAttribute, BroadcastableAttribute
 
 class RenderableColoredTraingleStrips(DataDomain):
     '''Data Domain for rendering colored triangle strips
