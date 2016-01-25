@@ -27,7 +27,7 @@ import pyglet
 from pyglet import gl
 from collections import namedtuple
 
-from data_oriented.datadomain import DataDomain, ArrayAttribute, BroadcastableAttribute
+from data_oriented import DataDomain, ArrayAttribute, BroadcastableAttribute
 
 class PolygonDomain(DataDomain):
     '''Data Domain for convex polygons to be rendered in pyglet
