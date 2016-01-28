@@ -37,13 +37,13 @@ class PolygonDomain(DataDomain):
     vert_dtype = dtype_tuple(np.float32,gl.GL_FLOAT)
     color_dtype = dtype_tuple(np.float32,gl.GL_FLOAT)
 
-    def __init__(self,size=16):
-      super(PolygonDomain,self).__init__(size=size)
+    def __init__(self):
+      super(PolygonDomain,self).__init__()
 
       #arrayed data
-      self.data = ArrayAttribute('data',size,5,np.float32)
-      self.verts = ArrayAttribute('verts',size,2,self.vert_dtype.np)
-      self.colors = ArrayAttribute('colors',size,3,self.color_dtype.np)
+      self.data = ArrayAttribute('data',5,np.float32)
+      self.verts = ArrayAttribute('verts',2,self.vert_dtype.np)
+      self.colors = ArrayAttribute('colors',3,self.color_dtype.np)
       self.array_attributes.extend([self.data,self.verts,self.colors])
 
       #property data

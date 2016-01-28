@@ -53,13 +53,13 @@ class RenderableColoredTraingleStrips(DataDomain):
     vert_dtype = dtype_tuple(np.float32,gl.GL_FLOAT)
     color_dtype = dtype_tuple(np.float32,gl.GL_FLOAT)
 
-    def __init__(self,size=16):
-      super(RenderableColoredTraingleStrips,self).__init__(size=size)
+    def __init__(self):
+      super(RenderableColoredTraingleStrips,self).__init__()
       self._registered_domains = [] #this should be DataDomain functionality
 
       #arrayed data
-      self.verts = ArrayAttribute('verts',size,2,self.vert_dtype.np)
-      self.colors = ArrayAttribute('colors',size,3,self.color_dtype.np)
+      self.verts = ArrayAttribute('verts',2,self.vert_dtype.np)
+      self.colors = ArrayAttribute('colors',3,self.color_dtype.np)
       self.array_attributes.extend([self.verts,self.colors])
 
       self.DataAccessor = self.generate_accessor('RenderableAccessor')
@@ -69,13 +69,14 @@ class RenderableColoredTraingleStrips(DataDomain):
 
     def update(self):
         # flush verts and colors
-        self.allocator.starts=[]
-        self.allocator.sizes=[]
+        self.allocator.flush()
         for domain in self._registered_domains:
           n = domain.how_many()
-          start = self.safe_alloc(n)
+          start, _ = self.safe_alloc(n,self._next_id) #TODO make an array only datadomain/allocator
           selector = slice(start,start+n,1)
           domain.update(self.colors[selector],self.verts[selector])
+          self._next_id += 1
+        self._next_id = 0
 
     def draw(self):
         gl.glClearColor(0.2, 0.4, 0.5, 1.0)
@@ -102,16 +103,16 @@ class RotateablePolygon(DataDomain):
     registers with RenderableColoredTraingleStrips
     '''
 
-    def __init__(self,renderable_domain,size=16):
-      super(RotateablePolygon,self).__init__(size=size)
+    def __init__(self,renderable_domain):
+      super(RotateablePolygon,self).__init__()
       renderable_domain.register(self)
       #TODO manage datatypes gracefully...
       v_dtype = renderable_domain.vert_dtype.np
       c_dtype = renderable_domain.color_dtype.np
 
       #arrayed data
-      self.data = ArrayAttribute('data',size,5,v_dtype)
-      #self.color_cache=ArrayAttribute(size,3,cdtype)  TODO: use ColoredPolygon
+      self.data = ArrayAttribute('data',5,v_dtype)
+      #self.color_cache=ArrayAttribute(3,cdtype)  TODO: use ColoredPolygon
       self.array_attributes.extend([self.data])
 
       #property data

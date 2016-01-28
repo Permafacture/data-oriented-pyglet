@@ -25,7 +25,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #  come up with better names for the Attribute types
 import numpy as np
 from pyglet import gl
-from pyglet.graphics import allocation
+import allocation
 from math import pi, sin, cos,atan2,sqrt
 from accessors import data_accessor_factory
 
@@ -48,7 +48,7 @@ class ArrayAttribute(object):
     for data that is many to one relationship with an object
     TODO: make reallocateable.'''
 
-    def __init__(self,name,size,dim,dtype):
+    def __init__(self,name,dim,dtype,size=allocation.DEFAULT_SIZE):
       ''' create a numpy array buffer of shape (size,dim) with dtype==dtype'''
       #TODO: might could alternatively instatiate with an existing numpy array?
       self.name = name
@@ -83,14 +83,22 @@ class BroadcastableAttribute(object):
     for data that is one to one relationship with an object.
     TODO: make reallocateable (ie, for deletions)'''
 
-    def __init__(self,name,dim,dtype):
+    #TODO, this became the same thing as an ArrayAttribute. the only difference
+    # is in how a user intends to deal with them.  So, get rid of duplication.
+    def __init__(self,name,dim,dtype,size=allocation.DEFAULT_SIZE):
       '''dtype -> numpy data type for array representation
          name -> property name to access from DataOriented Object'''
       self.name = name
-      assert dim>=1, "BroadcastableAttribute dimension: %s not >= 1" % (dim, )  
+      self.datatype=dtype #calling this dtype would be confusing because this is not a numpy array!
       self._dim = dim
-      self.datatype=dtype
-      self._buffer = np.array([],dtype=dtype)
+      if dim == 1:
+        self._buffer = np.empty(size,dtype=dtype) #shape = (size,) not (size,1)
+        self.resize = self._resize_singledim
+      elif dim > 1:
+        self._buffer = np.empty((size,dim),dtype=dtype) #shape = (size,dim)
+        self.resize = self._resize_multidim
+      else:
+        raise ValueError('''ArrayAttribute dim must be >= 1''')
 
     def __getitem__(self,selector):
       return self._buffer[selector]
@@ -98,15 +106,21 @@ class BroadcastableAttribute(object):
     def __setitem__(self,selector,data):
       self._buffer[selector]=data
 
-    def add(self,item):
-      dim = self._dim
-      if dim == 1:
-        shape = (self._buffer.shape[0]+1,)
-      else :
-        shape = (self._buffer.shape[0]+1,dim)
-      self._buffer.resize(shape)
-      self._buffer[-1] = item
-      return len(self._buffer) -1
+    def _resize_multidim(self,count):
+      self._buffer.resize((count,self._dim))
+
+    def _resize_singledim(self,count):
+      self._buffer.resize(count)
+
+    #def add(self,item):
+    #  dim = self._dim
+    #  if dim == 1:
+    #    shape = (self._buffer.shape[0]+1,)
+    #  else :
+    #    shape = (self._buffer.shape[0]+1,dim)
+    #  self._buffer.resize(shape)
+    #  self._buffer[-1] = item
+    #  return len(self._buffer) -1
 
     def __repr__(self):
       return self.name
@@ -118,13 +132,17 @@ class DataDomain(object):
     for object oriented interaction with entries in the data domain
     '''
 
-    def __init__(self,size=16):
-      self.allocator = allocation.Allocator(size)
-      self._id2index_dict = {}
+    def __init__(self):
+      self.allocator = allocation.ArrayAndBroadcastableAllocator()
+      self.dealloc = self.allocator.dealloc
+      #no harm in running defrag on an empty array, and who knows what the 
+      #  parent class will do, so let's be safe.
+      self.mark_attributes_as_dirty()
+
       self._next_id = 0
 
 
-      self.indices = ArrayAttribute('indices',size,1,np.int32)
+      self.indices = ArrayAttribute('indices',1,np.int32)
 
       #arrayed data
       self.array_attributes = [self.indices]
@@ -135,17 +153,34 @@ class DataDomain(object):
       #__init__ of subclasses should do this:
       #self.DataAccessor = self.generate_accessor('GenericDataAccessor')
 
-    def safe_alloc(self, count):
-      '''Allocate space in arrays, resizing them if necessary.'''
+    def safe_alloc(self, count,id):
+      '''Allocate space in arrays, resizing them if necessary.
+      assumes that BroadcastableAttributes are having only
+      one element added.
+
+      returns: (array_start, free_index) where array start is the first index
+      in the ArrayAttributes that can accept date of size=count and free_index
+      is the first index in the BroadcastableAttributes that can accept a 
+      value '''
       try:
-          return self.allocator.alloc(count)
+          array_start = self.allocator.alloc_array(id,count)
       except allocation.AllocatorMemoryException, e:
           capacity = _nearest_pow2(e.requested_capacity)
           #self._version += 1
           for attribute in self.array_attributes:
               attribute.resize(capacity)
-          self.allocator.set_capacity(capacity)
-          return self.allocator.alloc(count)
+          self.allocator.set_array_capacity(capacity)
+          array_start = self.allocator.alloc_array(id,count)
+      try:
+          free_index = self.allocator.alloc_broadcastable(id)
+      except allocation.AllocatorMemoryException, e:
+          capacity = _nearest_pow2(e.requested_capacity)
+          #self._version += 1
+          for attribute in self.broadcastable_attributes:
+              attribute.resize(capacity)
+          self.allocator.set_broadcastable_capacity(capacity)
+          free_index = self.allocator.alloc_broadcastable(id)
+      return (array_start,free_index)
 
     def generate_accessor(self,name):
         '''construct the DataAccessor specific for this DataDomain'''
@@ -154,24 +189,92 @@ class DataDomain(object):
  
 
     def index_from_id(self,id):
-        return self._id2index_dict[id]
+        return self.allocator.index_from_id(id)
+
+    def defragment_attributes(self):
+        array_fixers, broadcastable_fixers = self.allocator.defrag()
+        for attribute in self.array_attributes:
+          for source_sel, target_sel in zip(*array_fixers):
+            attribute[target_sel] = attribute[source_sel]
+        for attribute in self.broadcastable_attributes:
+          for source_sel, target_sel in zip(*broadcastable_fixers):
+            attribute[target_sel] = attribute[source_sel]
+
+    def mark_attributes_as_dirty(self,fragmented=True):
+        '''Since we rely on efficiently using arrays when they are clean
+        and changing the pointers to various array accessing functions
+        after they are dirtied, this function encapsulates all the
+        dirty marking logic.  Some operations don't fragment the buffers
+        so we can avoid marking them as needing defragmentation with the
+        `fragmented=False` kwarg.
+
+        creates and manages `array_selector`, `broadcastable_selector`, and
+        `as_array`
+        '''
+        self._array_selector = None
+        self._broadcastable_selector = None
+        if fragmented:
+            self._as_array = self._get_dirty_array
+
+    @property
+    def array_selector(self):
+        '''return the selector to all valid data in the ArrayAttributes'''
+        if self._array_selector: return self._array_selector
+        a = self.allocator.array_allocator
+        start = a.starts[-1]
+        array_selector = slice(start,start+a.sizes[-1],1)
+        self._array_selector = array_selector
+        return array_selector
+
+    @property
+    def broadcastable_selector(self):
+        '''return the selector to all valid data in the BroadcastableAttributes'''
+        if self._broadcastable_selector: return self._broadcastable_selector
+        a = self.allocator.broadcast_allocator
+        #b_selector = slice(start,start+a.sizes[-1],1)
+        b_selector = a.starts[-1] #start = a.starts[-1]
+        self._broadcastable_selector = b_selector
+        return b_selector
 
     def as_array(self,attr):
-        '''helper function to return the valid portions of the attribute 
+        '''Placeholder function.  datadomain.as_array should point to 
+        _get_dirty_array or _get_defragged_array depending on if the 
+        attributes are currently fragmented or not'''
+
+        #don't give the user a function that might overwrite itself to become
+        # more efficient, because the user may keep calling the inefficient 
+        # one! This extra level of function call is not ideal, but better than
+        # letting the user call _get_dirty_array over and over accidentally.
+        return self._as_array(attr)
+
+    def _get_dirty_array(self,attr):
+        '''datadomain calls this as `as_array` when it knows the attributes
+        are fragmented.
+        
+        when it is known that the attributes are fragmented, this function
+        should be used.  It defrags them first and then returns the array.
+        datadomin should use this function as `as_array` when it knows the
+        attributes to be fragmented.'''
+        self.defragment_attributes()
+        self._as_array = self._get_clean_array #should this go in defrag?
+        return self._as_array(attr)
+
+    def _get_clean_array(self,attr):
+        '''datadomain calls this as `as_array` when it knows the attributes
+        are not fragmented.
+
+        Helper function to return the valid portions of the attribute 
         buffer.  BroadcastableAttributes are broadcasted to be used with
         the ArrayAttributes here'''
-        #TODO allocator should return a selector for valid memory locations
-        # initially, since all data will be tightly packed, this can be a slice.
-        # eventually, if Data Oriented Objects become resizeable and thus have
-        # space overprovisioned for them between elements in the buffer, this 
-        # could be a mask.
-        starts,sizes = self.allocator.get_allocated_regions()
-        end = starts[-1]+sizes[-1]
-        if isinstance(attr,ArrayAttribute):
-          return attr[:end]
-        elif isinstance(attr,BroadcastableAttribute):
-          return attr[self.indices[:end]]
 
+        if isinstance(attr,ArrayAttribute):
+          return attr[self.array_selector]
+        elif isinstance(attr,BroadcastableAttribute):
+          #TODO: hiding broadcasting from user at the cost of making access
+          # to unbroadcasted arrays difficult is dumb.  fix this soon and
+          # add an as_broadcasted or something.
+          return attr[self.indices[self.array_selector]]
+    
     def add(self,*args,**kwargs):
       '''add an instance of properties to the domain.
       returns a data accessor to allow for interaction with this instance of 
@@ -183,30 +286,31 @@ class DataDomain(object):
       # BroadcastableAttributes and decide between two `add`s, where one expects 
       # not to have BroadcastableAttributes and the other does.  ie: no indices
       # right now, assumes at least one BroadcastableAttribute
-      n = None; index = None
+
+      self.mark_attributes_as_dirty(fragmented=False)
+      id =self._next_id 
+      self._next_id += 1
+
+      #TODO this could be more efficient.
+      n = None
       arrayed_names = {attr.name for attr in self.array_attributes}
       broadcastable_names  = {attr.name for attr in self.broadcastable_attributes}
       assert broadcastable_names, "DataDomains without one BroadcastableAttribute not yet supported"
 
       for key,val in kwargs.items():
-        if key in broadcastable_names:
-          if index is None:
-            index = getattr(self,key).add(val)
-          else:
-            getattr(self,key).add(val)
-
-      for key,val in kwargs.items():
         if key in arrayed_names:
           if n is None:
             n = len(val)
-            start = self.safe_alloc(n)
-            selector = slice(start,start+n,1)
+            array_start,free_index = self.safe_alloc(n,id)
+            selector = slice(array_start,array_start+n,1)
           getattr(self,key)[selector] = val
 
-      self.indices[selector] = index
-      id =self._next_id 
-      self._id2index_dict[id] = index
-      self._next_id += 1
+      for key,val in kwargs.items():
+        if key in broadcastable_names:
+          getattr(self,key)[free_index] = val
+
+
+      self.indices[selector] = free_index
 
       return self.DataAccessor(self,id)
 

@@ -33,16 +33,16 @@ class DataAccessor(object):
 def singleattribute_getter_factory(domain,attr):
       '''generate a getter using this object's index to the domain arrays
       attr is the domain's list of this attribute'''
-      def getter(self):
-        index = domain.index_from_id(self._id)
+      def getter(self,index_from_id=domain.index_from_id,attr=attr):
+        index = index_from_id(self._id)
         return attr[index]
       return getter
 
 def singleattribute_setter_factory(domain,attr):
       '''generate a setter using this object's index to the domain arrays
       attr is the domain's list of this attribute'''
-      def setter(self, data):
-        index = domain.index_from_id(self._id)
+      def setter(self, data, index_from_id = domain.index_from_id,attr=attr):
+        index = index_from_id(self._id)
         attr[index] = data
       return setter
 
