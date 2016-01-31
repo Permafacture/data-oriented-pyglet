@@ -28,8 +28,11 @@ class DataAccessor(object):
       self._id=id
 
 
-#TODO: pass domain and attr into the getter and setter through kwargs for
-#  to minimize namespace lookups
+
+#TODO: instead of using datadomain.index_from_id, find a way of giving the
+# accessor more direct access to the function that gives it the index. Right
+# now, the function is several pointers away.  Probably not worth bothering
+# with though.
 def singleattribute_getter_factory(domain,attr):
       '''generate a getter using this object's index to the domain arrays
       attr is the domain's list of this attribute'''

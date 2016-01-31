@@ -29,6 +29,12 @@ from collections import namedtuple
 
 from data_oriented import DataDomain, ArrayAttribute, BroadcastableAttribute
 
+import time
+#Limit run time for profiling
+run_for = 15 #seconds to run test for
+def done_yet(duration = run_for, start=time.time()):
+  return time.time()-start > duration
+
 class PolygonDomain(DataDomain):
     '''Data Domain for convex polygons to be rendered in pyglet
     TODO: push DOP related code to a DataDomain class and put polygon
@@ -164,6 +170,9 @@ if __name__ == '__main__':
     @window.event
     def on_draw():
         global angles
+
+        if done_yet():
+          pyglet.app.exit()
 
         window.clear()
         for i, ent in enumerate(ents):

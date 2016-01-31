@@ -135,6 +135,8 @@ class DataDomain(object):
     def __init__(self):
       self.allocator = allocation.ArrayAndBroadcastableAllocator()
       self.dealloc = self.allocator.dealloc
+      self.index_from_id = self.allocator.index_from_id
+
       #no harm in running defrag on an empty array, and who knows what the 
       #  parent class will do, so let's be safe.
       self.mark_attributes_as_dirty()
@@ -188,8 +190,8 @@ class DataDomain(object):
                         self.array_attributes,self.broadcastable_attributes)
  
 
-    def index_from_id(self,id):
-        return self.allocator.index_from_id(id)
+    #def index_from_id(self,id):
+    #    return self.allocator.index_from_id(id)
 
     def defragment_attributes(self):
         array_fixers, broadcastable_fixers = self.allocator.defrag()
