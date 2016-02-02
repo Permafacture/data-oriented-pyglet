@@ -49,12 +49,36 @@ def singleattribute_setter_factory(domain,attr):
         attr[index] = data
       return setter
 
+def multiattribute_getter_factory(domain,attr):
+      '''generate a getter using this object's index to the domain arrays
+      attr is the domain's list of this attribute'''
+      def getter(self,index_from_id=domain.slice_from_id,attr=attr):
+        index = index_from_id(self._id)
+        return attr[index]
+      return getter
+
+def multiattribute_setter_factory(domain,attr):
+      '''generate a setter using this object's index to the domain arrays
+      attr is the domain's list of this attribute'''
+      def setter(self, data, index_from_id = domain.slice_from_id,attr=attr):
+        index = index_from_id(self._id)
+        attr[index] = data
+      return setter
+
 def data_accessor_factory(name,domain,plural_attributes,single_attributes):
     '''return a new class to instantiate DataAcessors for this DataDomain'''
     NewAccessor = type(name,(DataAccessor,),{})
+
     getter = singleattribute_getter_factory
     setter = singleattribute_setter_factory
     for attr in single_attributes:
       setattr(NewAccessor,attr.name,property(getter(domain,attr), setter(domain,attr)))
+
+    getter = multiattribute_getter_factory
+    setter = multiattribute_setter_factory
+    for attr in plural_attributes:
+      setattr(NewAccessor,attr.name,property(getter(domain,attr), setter(domain,attr)))
+
+
     return NewAccessor
 

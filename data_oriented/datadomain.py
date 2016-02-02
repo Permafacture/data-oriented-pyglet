@@ -136,6 +136,7 @@ class DataDomain(object):
       self.allocator = allocation.ArrayAndBroadcastableAllocator()
       self.dealloc = self.allocator.dealloc
       self.index_from_id = self.allocator.index_from_id
+      self.slice_from_id = self.allocator.slice_from_id
 
       #no harm in running defrag on an empty array, and who knows what the 
       #  parent class will do, so let's be safe.
@@ -276,6 +277,9 @@ class DataDomain(object):
           # to unbroadcasted arrays difficult is dumb.  fix this soon and
           # add an as_broadcasted or something.
           return attr[self.indices[self.array_selector]]
+        else:
+          raise ValueError(
+                "Cannot return non Attribute type %s as an array" % type(attr))
     
     def add(self,*args,**kwargs):
       '''add an instance of properties to the domain.

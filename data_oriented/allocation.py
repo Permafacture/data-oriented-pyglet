@@ -45,6 +45,10 @@ class DefraggingAllocator(Allocator):
     def index_from_id(self,id):
         return self._id2selector_dict[id][0]
 
+    def slice_from_id(self,id):
+        start, size = self._id2selector_dict[id]
+        return slice(start,start+size,1)
+
     def alloc(self,size,id):
         free_start = super(DefraggingAllocator,self).alloc(size)
         self._id2selector_dict[id] = (free_start,size)
@@ -105,7 +109,7 @@ class ArrayAndBroadcastableAllocator(object):
         self.array_allocator = DefraggingAllocator(0)
         self.broadcast_allocator = DefraggingAllocator(0)
         self.index_from_id = self.broadcast_allocator.index_from_id
-        self.selector_from_id = self.array_allocator.selector_from_id
+        self.slice_from_id = self.array_allocator.slice_from_id
 
     def flush(self):
         self.array_allocator.flush()
