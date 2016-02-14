@@ -31,12 +31,14 @@ class DefraggingAllocator(Allocator):
 
     def __init__(self,capacity):
         self._id2selector_dict = {}
+        self.dirty = False
         super(DefraggingAllocator,self).__init__(capacity)
 
     def flush(self):
         '''forget all allocations'''
         self.starts = []
         self.sizes = []
+        self.dirty=False
         self._id2selector_dict = {}
 
     def selector_from_id(self,id):
@@ -48,6 +50,9 @@ class DefraggingAllocator(Allocator):
     def slice_from_id(self,id):
         start, size = self._id2selector_dict[id]
         return slice(start,start+size,1)
+
+    def all_valid_selector(self):
+        return self.starts[-1]+self.sizes[-1]
 
     def alloc(self,size,id):
         free_start = super(DefraggingAllocator,self).alloc(size)
@@ -68,6 +73,7 @@ class DefraggingAllocator(Allocator):
 
     def dealloc(self,id):
         start, size = self._id2selector_dict.pop(id)
+        self.dirty = True
         super(DefraggingAllocator,self).dealloc(start,size)
 
     #def get_allocated_regions(self):
@@ -87,6 +93,8 @@ class DefraggingAllocator(Allocator):
         free_start = 0 #start at the begining
         source_selectors = []
         target_selectors = []
+        starts=[]
+        sizes = []
         id2selector = self._id2selector_dict
         start_getter = lambda x: x[1][0] #sort by starts
         for id, (start, size) in sorted(id2selector.items(), key=start_getter):
@@ -97,8 +105,13 @@ class DefraggingAllocator(Allocator):
             start = free_start
             target_selectors.append(slice(start,start+size,1))
             id2selector[id] = (start,size)
+            starts.append(start)
+            sizes.append(size)
           free_start = start+size
 
+        self.starts = starts
+        self.sizes = sizes
+        self.dirty = False
         return source_selectors, target_selectors
 
 class ArrayAndBroadcastableAllocator(object):
@@ -108,12 +121,26 @@ class ArrayAndBroadcastableAllocator(object):
     def __init__(self):
         self.array_allocator = DefraggingAllocator(0)
         self.broadcast_allocator = DefraggingAllocator(0)
+        self.array_selector = self.array_allocator.all_valid_selector
+        self.broadcast_allocator.all_valid_selector
+
         self.index_from_id = self.broadcast_allocator.index_from_id
         self.slice_from_id = self.array_allocator.slice_from_id
+        self.dirty = self.array_allocator.dirty #Just for consistency
+
+    def iter_selectors(self):
+        '''return the id, broadcastable index and array slice for every item
+        that is allocated.'''
+
+        #selector_by_id = self.array_allocator.slice_from_id
+        selector_by_id = self.array_allocator.slice_from_id
+        for id, idx in sorted(self.broadcast_allocator._id2selector_dict.items(),key=lambda x: x[1][0]):
+           yield (id,idx[0],selector_by_id(id))
 
     def flush(self):
         self.array_allocator.flush()
         self.broadcast_allocator.flush()
+        self.dirty = self.array_allocator.dirty
 
     def alloc_array(self,id,size):
         '''allocate size for the ArrayAttributes 
@@ -139,6 +166,7 @@ class ArrayAndBroadcastableAllocator(object):
     def dealloc(self,id):
         self.array_allocator.dealloc(id)
         self.broadcast_allocator.dealloc(id)
+        self.dirty=True
 
     def defrag(self):
         '''defrag both ArrayAttributes and BroadcastableAttributes.
@@ -146,4 +174,5 @@ class ArrayAndBroadcastableAllocator(object):
         lists of pairs of slices documented in DefraggingAllocator.defrag'''
         array_fixers = self.array_allocator.defrag()
         broadcast_fixers = self.broadcast_allocator.defrag()
+        self.dirty = False
         return (array_fixers, broadcast_fixers)

@@ -138,10 +138,6 @@ class DataDomain(object):
       self.index_from_id = self.allocator.index_from_id
       self.slice_from_id = self.allocator.slice_from_id
 
-      #no harm in running defrag on an empty array, and who knows what the 
-      #  parent class will do, so let's be safe.
-      self.mark_attributes_as_dirty()
-
       self._next_id = 0
 
 
@@ -202,42 +198,46 @@ class DataDomain(object):
         for attribute in self.broadcastable_attributes:
           for source_sel, target_sel in zip(*broadcastable_fixers):
             attribute[target_sel] = attribute[source_sel]
+        #TODO this below and the allocator function that enables it seem inefficient...
+        indices=self.indices
+        for id,idx,selector in self.allocator.iter_selectors():
+            indices[selector] = idx
 
-    def mark_attributes_as_dirty(self,fragmented=True):
-        '''Since we rely on efficiently using arrays when they are clean
-        and changing the pointers to various array accessing functions
-        after they are dirtied, this function encapsulates all the
-        dirty marking logic.  Some operations don't fragment the buffers
-        so we can avoid marking them as needing defragmentation with the
-        `fragmented=False` kwarg.
+   # def mark_attributes_as_dirty(self,fragmented=True):
+   #     '''Since we rely on efficiently using arrays when they are clean
+   #     and changing the pointers to various array accessing functions
+   #     after they are dirtied, this function encapsulates all the
+   #     dirty marking logic.  Some operations don't fragment the buffers
+   #     so we can avoid marking them as needing defragmentation with the
+   #     `fragmented=False` kwarg.
 
-        creates and manages `array_selector`, `broadcastable_selector`, and
-        `as_array`
-        '''
-        self._array_selector = None
-        self._broadcastable_selector = None
-        if fragmented:
-            self._as_array = self._get_dirty_array
+   #     creates and manages `array_selector`, `broadcastable_selector`, and
+   #     `as_array`
+   #     '''
+   #     self._array_selector = None
+   #     self._broadcastable_selector = None
+   #     if fragmented:
+   #         self._as_array = self._get_dirty_array
 
-    @property
-    def array_selector(self):
-        '''return the selector to all valid data in the ArrayAttributes'''
-        if self._array_selector: return self._array_selector
-        a = self.allocator.array_allocator
-        start = a.starts[-1]
-        array_selector = slice(start,start+a.sizes[-1],1)
-        self._array_selector = array_selector
-        return array_selector
+   # @property
+   # def array_selector(self):
+   #     '''return the selector to all valid data in the ArrayAttributes'''
+   #     if self._array_selector: return self._array_selector
+   #     a = self.allocator.array_allocator
+   #     start = a.starts[-1]
+   #     array_selector = slice(start,start+a.sizes[-1],1)
+   #     self._array_selector = array_selector
+   #     return array_selector
 
-    @property
-    def broadcastable_selector(self):
-        '''return the selector to all valid data in the BroadcastableAttributes'''
-        if self._broadcastable_selector: return self._broadcastable_selector
-        a = self.allocator.broadcast_allocator
-        #b_selector = slice(start,start+a.sizes[-1],1)
-        b_selector = a.starts[-1] #start = a.starts[-1]
-        self._broadcastable_selector = b_selector
-        return b_selector
+   # @property
+   # def broadcastable_selector(self):
+   #     '''return the selector to all valid data in the BroadcastableAttributes'''
+   #     if self._broadcastable_selector: return self._broadcastable_selector
+   #     a = self.allocator.broadcast_allocator
+   #     #b_selector = slice(start,start+a.sizes[-1],1)
+   #     b_selector = a.starts[-1] #start = a.starts[-1]
+   #     self._broadcastable_selector = b_selector
+   #     return b_selector
 
     def as_array(self,attr):
         '''Placeholder function.  datadomain.as_array should point to 
@@ -248,21 +248,11 @@ class DataDomain(object):
         # more efficient, because the user may keep calling the inefficient 
         # one! This extra level of function call is not ideal, but better than
         # letting the user call _get_dirty_array over and over accidentally.
+        if self.allocator.dirty:
+          self.defragment_attributes()
         return self._as_array(attr)
 
-    def _get_dirty_array(self,attr):
-        '''datadomain calls this as `as_array` when it knows the attributes
-        are fragmented.
-        
-        when it is known that the attributes are fragmented, this function
-        should be used.  It defrags them first and then returns the array.
-        datadomin should use this function as `as_array` when it knows the
-        attributes to be fragmented.'''
-        self.defragment_attributes()
-        self._as_array = self._get_clean_array #should this go in defrag?
-        return self._as_array(attr)
-
-    def _get_clean_array(self,attr):
+    def _as_array(self,attr):
         '''datadomain calls this as `as_array` when it knows the attributes
         are not fragmented.
 
@@ -270,13 +260,14 @@ class DataDomain(object):
         buffer.  BroadcastableAttributes are broadcasted to be used with
         the ArrayAttributes here'''
 
+        array_selector = slice(0, self.allocator.array_selector(),1)
         if isinstance(attr,ArrayAttribute):
-          return attr[self.array_selector]
+          return attr[array_selector]
         elif isinstance(attr,BroadcastableAttribute):
           #TODO: hiding broadcasting from user at the cost of making access
           # to unbroadcasted arrays difficult is dumb.  fix this soon and
           # add an as_broadcasted or something.
-          return attr[self.indices[self.array_selector]]
+          return attr[self.indices[array_selector]]
         else:
           raise ValueError(
                 "Cannot return non Attribute type %s as an array" % type(attr))
@@ -293,7 +284,6 @@ class DataDomain(object):
       # not to have BroadcastableAttributes and the other does.  ie: no indices
       # right now, assumes at least one BroadcastableAttribute
 
-      self.mark_attributes_as_dirty(fragmented=False)
       id =self._next_id 
       self._next_id += 1
 

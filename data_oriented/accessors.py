@@ -27,7 +27,8 @@ class DataAccessor(object):
       self._domain = domain
       self._id=id
 
-
+    def __del__(self):
+      self._domain.dealloc(self._id)
 
 #TODO: instead of using datadomain.index_from_id, find a way of giving the
 # accessor more direct access to the function that gives it the index. Right
