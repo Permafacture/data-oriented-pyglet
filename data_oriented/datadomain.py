@@ -2,7 +2,7 @@
 Data Oriented ORM
 
 This file is part of Data Oriented Python.
-Copyright (C) 2016 Elliot Hallmark (permfacture@gmail.com)
+Copyright (C) 2016 Elliot Hallmark (permafacture@gmail.com)
 
 Data Oreinted Python is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

@@ -3,7 +3,7 @@ quick test to compare numpy math vs list comprehensions as a function
 of size of data.
 
 This file is part of Data Oriented Python.
-Copyright (C) 2016 Elliot Hallmark (permfacture@gmail.com)
+Copyright (C) 2016 Elliot Hallmark (permafacture@gmail.com)
 
 Data Oreinted Python is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

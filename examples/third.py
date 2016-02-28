@@ -9,7 +9,7 @@ individual shapes post creation.  IE, all polygons have the same number
 of sides and turn at the same rate.
 
 This file is part of Data Oriented Python.
-Copyright (C) 2016 Elliot Hallmark (permfacture@gmail.com)
+Copyright (C) 2016 Elliot Hallmark (permafacture@gmail.com)
 
 Data Oreinted Python is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
