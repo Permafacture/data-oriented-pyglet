@@ -29,7 +29,7 @@ class DefraggingAllocator(Allocator):
 
     caller is responsible for giving unique id's to entries.'''
 
-    def __init__(self,capacity):
+    def __init__(self,capacity=0):
         self._id2selector_dict = {}
         self.dirty = False
         super(DefraggingAllocator,self).__init__(capacity)
@@ -42,34 +42,36 @@ class DefraggingAllocator(Allocator):
         self._id2selector_dict = {}
 
     def selector_from_id(self,id):
-        return self._id2selector_dict[id]
+        start, size = self._id2selector_dict[id]
+        if size == 1:
+          return start
+        else:
+          return slice(start,start+size,1)
 
     def index_from_id(self,id):
-        return self._id2selector_dict[id][0]
+        start, size = self._id2selector_dict[id]
+        return start
 
     def slice_from_id(self,id):
         start, size = self._id2selector_dict[id]
-        return slice(start,start+size,1)
-
+        return slice(start,start_size,1)
+ 
     def all_valid_selector(self):
         return self.starts[-1]+self.sizes[-1]
 
-    def alloc(self,size,id):
+    def alloc(self,id,size):
         free_start = super(DefraggingAllocator,self).alloc(size)
         self._id2selector_dict[id] = (free_start,size)
         return free_start
 
     def realloc(self,id,new_size):
-        '''Cannot implement without copying essentially the entire code
-        of Allocator.realloc, since it potentially calls alloc but it
-        doesn't know to change id2selector_dict.
-
-        if it was certain not to call alloc, we could do simply:
-        start,size = self.id2selector_dict[id]
-        free_start = super(DefraggingAllocator,self).realloc(start,size,new_size)
-        self._id2selector_dict[id] = (free_start,new_size)
-        '''
-        raise NotImplementedError
+        '''Dealloc id and then realloc with a new size'''
+        #Deviates from philosophy of original dealloc because compaction makes
+        #it unlikely that there will be much free space within the buffer,
+        #thus those optimizations are not advantageous.
+        #if self._id2selector_dict[id][1] == 0 #probably not an optimization
+        self.dealloc(id)
+        return self.alloc(id,new_size)
 
     def dealloc(self,id):
         start, size = self._id2selector_dict.pop(id)
@@ -145,8 +147,13 @@ class ArrayAndBroadcastableAllocator(object):
     def alloc_array(self,id,size):
         '''allocate size for the ArrayAttributes 
         returns array_start'''
-        array_start = self.array_allocator.alloc(size,id)
+        array_start = self.array_allocator.alloc(id,size)
         return array_start
+
+    def last_valid_index(self):
+        #TODO This isn;t well named since its for arrays. HAck to get things working now
+        allocator = self.array_allocator
+        return allocator.starts[-1]+allocator.sizes[-1]
 
     def set_array_capacity(self,capacity):
         self.array_allocator.set_capacity(capacity)
@@ -154,7 +161,7 @@ class ArrayAndBroadcastableAllocator(object):
     def alloc_broadcastable(self,id,size=1):
         '''allocate size for the BroadcastableAttributes
         returns first free index'''
-        index = self.broadcast_allocator.alloc(size,id)
+        index = self.broadcast_allocator.alloc(id,size)
         return index
 
     def set_broadcastable_capacity(self,capacity):

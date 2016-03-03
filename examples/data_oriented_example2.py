@@ -32,7 +32,7 @@ import pyglet
 from pyglet import gl
 from collections import namedtuple
 
-from data_oriented import DataDomain, ArrayAttribute, BroadcastableAttribute
+from data_oriented import DataDomain, BroadcastingDataDomain, ArrayAttribute
 
 class RenderableColoredTraingleStrips(DataDomain):
     '''Data Domain for rendering colored triangle strips
@@ -72,7 +72,7 @@ class RenderableColoredTraingleStrips(DataDomain):
         self.allocator.flush()
         for domain in self._registered_domains:
           n = domain.how_many()
-          start, _ = self.safe_alloc(n,self._next_id) #TODO make an array only datadomain/allocator
+          start = self.safe_alloc(n,self._next_id) #TODO make an array only datadomain/allocator
           selector = slice(start,start+n,1)
           domain.update(self.colors[selector],self.verts[selector])
           self._next_id += 1
@@ -97,7 +97,7 @@ class Polygon(DataDomain):
     vertex generating and color generating data domains as an interface to
     the triangle strip renderer.  But this is just a thought / TODO'''
 
-class RotateablePolygon(DataDomain):
+class RotateablePolygon(BroadcastingDataDomain):
     '''Data Domain for convex polygons to be rendered in pyglet
 
     registers with RenderableColoredTraingleStrips
@@ -116,9 +116,9 @@ class RotateablePolygon(DataDomain):
       self.array_attributes.extend([self.data])
 
       #property data
-      self.position = BroadcastableAttribute('position',2,v_dtype)
-      self.angle = BroadcastableAttribute('angle',1,v_dtype)
-      self.color = BroadcastableAttribute('color',3,c_dtype)
+      self.position = ArrayAttribute('position',2,v_dtype)
+      self.angle = ArrayAttribute('angle',1,v_dtype)
+      self.color = ArrayAttribute('color',3,c_dtype)
 
       self.broadcastable_attributes.extend([self.position, self.angle, self.color])
  
@@ -185,7 +185,7 @@ class RotateablePolygon(DataDomain):
         xs, ys, rs, xhelpers, yhelpers = (initiald[:,x] for x in range(5))
        
         pts = verts  #directly accessing arrays to be rendered
-       
+      
         pts[:,0] = xhelpers*cos_ts
         pts[:,1] = yhelpers*sin_ts
         pts[:,0] -= pts[:,1]                 
@@ -209,7 +209,7 @@ class ColorChangingRotateablePolygon(RotateablePolygon):
 
     def __init__(self,*args,**kwargs):
         super(ColorChangingRotateablePolygon,self).__init__(*args,**kwargs)
-        self.intensity = BroadcastableAttribute('intensity',1,np.float32)
+        self.intensity = ArrayAttribute('intensity',1,np.float32)
         self.broadcastable_attributes.append(self.intensity)
         self.DataAccessor = self.generate_accessor('ColorChangingPolygonAccessor')
 

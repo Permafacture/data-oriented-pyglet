@@ -27,7 +27,7 @@ import pyglet
 from pyglet import gl
 from collections import namedtuple
 
-from data_oriented import DataDomain, ArrayAttribute, BroadcastableAttribute
+from data_oriented import BroadcastingDataDomain, ArrayAttribute
 
 import time
 #Limit run time for profiling
@@ -35,7 +35,7 @@ run_for = 15 #seconds to run test for
 def done_yet(duration = run_for, start=time.time()):
   return time.time()-start > duration
 
-class PolygonDomain(DataDomain):
+class PolygonDomain(BroadcastingDataDomain):
     '''Data Domain for convex polygons to be rendered in pyglet
     TODO: push DOP related code to a DataDomain class and put polygon
     rendering specific code into a subclass'''
@@ -53,8 +53,8 @@ class PolygonDomain(DataDomain):
       self.array_attributes.extend([self.data,self.verts,self.colors])
 
       #property data
-      self.position = BroadcastableAttribute('position',2,np.float32)
-      self.angle = BroadcastableAttribute('angle',1,np.float32)
+      self.position = ArrayAttribute('position',2,np.float32)
+      self.angle = ArrayAttribute('angle',1,np.float32)
       self.broadcastable_attributes.extend([self.position, self.angle])
  
       self.DataAccessor = self.generate_accessor('PolygonDataAccessor')

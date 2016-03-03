@@ -1,1 +1,1 @@
-from datadomain import DataDomain, ArrayAttribute, BroadcastableAttribute
+from datadomain import DataDomain, BroadcastingDataDomain, ArrayAttribute

@@ -27,13 +27,22 @@ class DataAccessor(object):
       self._domain = domain
       self._id=id
 
+    def resize(self,new_size):
+        self._domain.realloc(self._id,new_size)
+
     def __del__(self):
       self._domain.dealloc(self._id)
+
 
 #TODO: instead of using datadomain.index_from_id, find a way of giving the
 # accessor more direct access to the function that gives it the index. Right
 # now, the function is several pointers away.  Probably not worth bothering
 # with though.
+
+#TODO: single and multi are the sameish now that there is only ArrayAttribute
+# is it worth it providing an optimization (is it even an optimization?) for
+# index vs slice getting and setting?
+
 def singleattribute_getter_factory(domain,attr):
       '''generate a getter using this object's index to the domain arrays
       attr is the domain's list of this attribute'''

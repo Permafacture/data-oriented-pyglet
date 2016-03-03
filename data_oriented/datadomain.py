@@ -40,9 +40,6 @@ def _nearest_pow2(v):
     v |= v >> 16
     return v + 1
 
-#TODO: datadomain.arrayattributes.extend/append should assert that it is an
-#  array type, and that broadcastables are the broadcastable type
-#TODO: rename single attributes to indexed attributes or broadcastable.
 class ArrayAttribute(object):
     '''holds a resize-able, re-allocateable, numpy array buffer
     for data that is many to one relationship with an object
@@ -64,70 +61,135 @@ class ArrayAttribute(object):
         raise ValueError('''ArrayAttribute dim must be >= 1''')
 
     def __getitem__(self,selector):
-      #print "get buffer",self.datatype,self._buffer.dtype #TODO assert this
+      #assert self.datatype == self._buffer.dtype #bug if numpy changes dtype
       return self._buffer[selector]
 
     def __setitem__(self,selector,data):
-      #print "set buffer1",self.datatype,self._buffer.dtype #TODO assert this
       self._buffer[selector]=data
-      #print "set buffer2",self.datatype,self._buffer.dtype
+      assert self.datatype == self._buffer.dtype #bug if numpy changes dtype
 
     def _resize_multidim(self,count):
       self._buffer.resize((count,self._dim))
 
     def _resize_singledim(self,count):
       self._buffer.resize(count)
-
-class BroadcastableAttribute(object):
-    '''holds a resize-able, re-allocateable, buffer
-    for data that is one to one relationship with an object.
-    TODO: make reallocateable (ie, for deletions)'''
-
-    #TODO, this became the same thing as an ArrayAttribute. the only difference
-    # is in how a user intends to deal with them.  So, get rid of duplication.
-    def __init__(self,name,dim,dtype,size=allocation.DEFAULT_SIZE):
-      '''dtype -> numpy data type for array representation
-         name -> property name to access from DataOriented Object'''
-      self.name = name
-      self.datatype=dtype #calling this dtype would be confusing because this is not a numpy array!
-      self._dim = dim
-      if dim == 1:
-        self._buffer = np.empty(size,dtype=dtype) #shape = (size,) not (size,1)
-        self.resize = self._resize_singledim
-      elif dim > 1:
-        self._buffer = np.empty((size,dim),dtype=dtype) #shape = (size,dim)
-        self.resize = self._resize_multidim
-      else:
-        raise ValueError('''ArrayAttribute dim must be >= 1''')
-
-    def __getitem__(self,selector):
-      return self._buffer[selector]
-
-    def __setitem__(self,selector,data):
-      self._buffer[selector]=data
-
-    def _resize_multidim(self,count):
-      self._buffer.resize((count,self._dim))
-
-    def _resize_singledim(self,count):
-      self._buffer.resize(count)
-
-    #def add(self,item):
-    #  dim = self._dim
-    #  if dim == 1:
-    #    shape = (self._buffer.shape[0]+1,)
-    #  else :
-    #    shape = (self._buffer.shape[0]+1,dim)
-    #  self._buffer.resize(shape)
-    #  self._buffer[-1] = item
-    #  return len(self._buffer) -1
 
     def __repr__(self):
-      return self.name
+      return "<Array Attribute: %s>"%self.name
+
+
 
 class DataDomain(object):
     '''
     Manages arrays of properties.
+  
+    "objects" are added through this and an accessor is returned which allows
+    for object oriented interaction with entries in the data domain
+    '''
+
+    def __init__(self):
+      self.allocator = allocation.DefraggingAllocator()
+      self.dealloc = self.allocator.dealloc
+      self.slice_from_id = self.allocator.slice_from_id
+
+      self._next_id = 0
+
+      self.array_attributes = []
+      self.registered_domains = [] #accessors to sections of other DataDomains
+      #__init__ of subclasses should do this:
+      #self.DataAccessor = self.generate_accessor('GenericDataAccessor')
+
+    def safe_alloc(self, count,id):
+      '''Allocate space in arrays, resizing them if necessary.
+
+      returns: `array_start` which is the first index in the ArrayAttributes 
+      that can accept data of size=count '''
+      try:
+          array_start = self.allocator.alloc(id,count)
+      except allocation.AllocatorMemoryException, e:
+          capacity = _nearest_pow2(e.requested_capacity)
+          #self._version += 1
+          for attribute in self.array_attributes:
+              attribute.resize(capacity)
+          for accessor in self.registered_domains:
+              accessor.resize(capacity)
+          self.allocator.set_capacity(capacity)
+          array_start = self.allocator.alloc(id,count)
+      return array_start
+
+    def register_domain(self,domain):
+        '''register another DataDomain to be accessed from within this one
+        and return a DataAccessor through which to access it'''
+        size = self.allocator.capacity
+        assert size == 0 #right now, must register while this domain is empty
+        #^why would you register a new domain at any other point than __init__
+        accessor = domain.add_empty(size) #an accessor to the *other* domain
+        self.registered_domains.append(accessor)
+        return accessor
+ 
+
+    def generate_accessor(self,name):
+        '''construct the DataAccessor specific for this DataDomain'''
+        return data_accessor_factory(name,self,self.array_attributes,[])
+ 
+
+    def defragment_attributes(self):
+        array_fixers = self.allocator.defrag()
+        for attribute in self.array_attributes:
+          for source_sel, target_sel in zip(*array_fixers):
+            attribute[target_sel] = attribute[source_sel]
+            attribute[target_sel] = attribute[source_sel]
+
+    def as_array(self,attr):
+        '''return a numpy array view on an attribute'''
+        if self.allocator.dirty:
+          self.defragment_attributes()
+        return self._as_array(attr)
+
+    def _as_array(self,attr):
+        '''return the valid portions of the attribute buffer.'''
+
+        array_selector = slice(0, self.allocator.all_valid_selector(),1)
+        if isinstance(attr,ArrayAttribute):
+          return attr[array_selector]
+        else:
+          raise ValueError(
+                "Cannot return non Attribute type %s as an array" % type(attr))
+
+    def add_empty(self,size):
+        '''create space in attribute arrays without initializing the data'''
+        id =self._next_id 
+        self._next_id += 1
+        array_start = self.safe_alloc(size,id)
+        return self.DataAccessor(self,id)
+        
+
+    def add(self,*args,**kwargs):
+        '''add an instance of properties to the domain.
+        returns a data accessor to allow for interaction with this instance of 
+        data.'''  
+        
+        id =self._next_id 
+        self._next_id += 1
+
+        #TODO this could be more efficient.
+        n = None
+        arrayed_names = {attr.name for attr in self.array_attributes}
+        for key,val in kwargs.items():
+          if key in arrayed_names:
+            if n is None:
+              n = len(val)
+              array_start = self.safe_alloc(n,id)
+              selector = slice(array_start,array_start+n,1)
+            getattr(self,key)[selector] = val
+
+        return self.DataAccessor(self,id)
+
+class BroadcastingDataDomain(object):
+    '''
+    Manages arrays of properties.  BroadcastableAttributes map one-to-many
+    to ArrayAttributes.
+  
     "objects" are added through this and an accessor is returned which allows
     for object oriented interaction with entries in the data domain
     '''
@@ -148,7 +210,7 @@ class DataDomain(object):
 
       #property data
       self.broadcastable_attributes = []
- 
+      self.registered_domains = [] 
       #__init__ of subclasses should do this:
       #self.DataAccessor = self.generate_accessor('GenericDataAccessor')
 
@@ -181,6 +243,22 @@ class DataDomain(object):
           free_index = self.allocator.alloc_broadcastable(id)
       return (array_start,free_index)
 
+
+#TODO Register domain should assert that the other domains are size zero
+#Empty_add create a zero sized accessor
+#Accessors need to grow themselves
+#safe_alloc needs to call that
+    def register_domain(self,domain):
+        '''register another DataDomain to be accessed from within this one
+        and return a DataAccessor through which to access it'''
+        try:
+          size = self.allocator.last_valid_index()
+        except IndexError:
+          size=0
+        accessor = domain.add_empty(size) 
+        self.registered_domains.append(accessor)
+        return accessor
+
     def generate_accessor(self,name):
         '''construct the DataAccessor specific for this DataDomain'''
         return data_accessor_factory(name,self,
@@ -202,42 +280,6 @@ class DataDomain(object):
         indices=self.indices
         for id,idx,selector in self.allocator.iter_selectors():
             indices[selector] = idx
-
-   # def mark_attributes_as_dirty(self,fragmented=True):
-   #     '''Since we rely on efficiently using arrays when they are clean
-   #     and changing the pointers to various array accessing functions
-   #     after they are dirtied, this function encapsulates all the
-   #     dirty marking logic.  Some operations don't fragment the buffers
-   #     so we can avoid marking them as needing defragmentation with the
-   #     `fragmented=False` kwarg.
-
-   #     creates and manages `array_selector`, `broadcastable_selector`, and
-   #     `as_array`
-   #     '''
-   #     self._array_selector = None
-   #     self._broadcastable_selector = None
-   #     if fragmented:
-   #         self._as_array = self._get_dirty_array
-
-   # @property
-   # def array_selector(self):
-   #     '''return the selector to all valid data in the ArrayAttributes'''
-   #     if self._array_selector: return self._array_selector
-   #     a = self.allocator.array_allocator
-   #     start = a.starts[-1]
-   #     array_selector = slice(start,start+a.sizes[-1],1)
-   #     self._array_selector = array_selector
-   #     return array_selector
-
-   # @property
-   # def broadcastable_selector(self):
-   #     '''return the selector to all valid data in the BroadcastableAttributes'''
-   #     if self._broadcastable_selector: return self._broadcastable_selector
-   #     a = self.allocator.broadcast_allocator
-   #     #b_selector = slice(start,start+a.sizes[-1],1)
-   #     b_selector = a.starts[-1] #start = a.starts[-1]
-   #     self._broadcastable_selector = b_selector
-   #     return b_selector
 
     def as_array(self,attr):
         '''Placeholder function.  datadomain.as_array should point to 
@@ -261,9 +303,9 @@ class DataDomain(object):
         the ArrayAttributes here'''
 
         array_selector = slice(0, self.allocator.array_selector(),1)
-        if isinstance(attr,ArrayAttribute):
+        if attr in self.array_attributes:
           return attr[array_selector]
-        elif isinstance(attr,BroadcastableAttribute):
+        elif attr in self.broadcastable_attributes:
           #TODO: hiding broadcasting from user at the cost of making access
           # to unbroadcasted arrays difficult is dumb.  fix this soon and
           # add an as_broadcasted or something.
@@ -272,6 +314,13 @@ class DataDomain(object):
           raise ValueError(
                 "Cannot return non Attribute type %s as an array" % type(attr))
     
+    def add_empty(self,size):
+        '''create space in attribute arrays without initializing the data'''
+        id =self._next_id 
+        self._next_id += 1
+        array_start = self.safe_alloc(size,id)
+        return self.DataAccessor(self,id)
+
     def add(self,*args,**kwargs):
       '''add an instance of properties to the domain.
       returns a data accessor to allow for interaction with this instance of 

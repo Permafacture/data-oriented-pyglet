@@ -1,14 +1,14 @@
 from unittest import TestCase, TestSuite, TextTestRunner
 import numpy as np
 
-from data_oriented import DataDomain, ArrayAttribute, BroadcastableAttribute
+from data_oriented import DataDomain, BroadcastingDataDomain, ArrayAttribute
 
 class DataDomainTestCase(TestCase):
 
 
    def setUp(self):
 
-        class TestDataDomain(DataDomain):
+        class TestDataDomain(BroadcastingDataDomain):
             '''a DataDomain with one 1D Array, one 2D Array, and one Broadcastable 
             attribute to use in tests.'''
             def __init__(self):
@@ -18,8 +18,8 @@ class DataDomainTestCase(TestCase):
               self.arrayed2D = ArrayAttribute('arrayed2D',2,np.float32)
               self.array_attributes.extend([self.arrayed1D,self.arrayed2D])
 
-              self.broadcastable1D = BroadcastableAttribute('broadcastable1D',1,np.int32)
-              self.broadcastable2D = BroadcastableAttribute('broadcastable2D',2,np.int32)
+              self.broadcastable1D = ArrayAttribute('broadcastable1D',1,np.int32)
+              self.broadcastable2D = ArrayAttribute('broadcastable2D',2,np.int32)
               self.broadcastable_attributes.extend([self.broadcastable1D,self.broadcastable2D])
 
               self.DataAccessor = self.generate_accessor('TestAccessor') 
