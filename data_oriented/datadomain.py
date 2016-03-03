@@ -263,9 +263,11 @@ class BroadcastingDataDomain(object):
         attributes = []
         allocators = []
         attributes.extend(self.array_attributes)
-        allocators.extend([self.allocator.array_allocator]*len(self.array_attributes))
+        allocators.extend([
+          self.allocator.array_allocator]*len(self.array_attributes))
         attributes.extend(self.broadcastable_attributes)
-        allocators.extend([self.allocator.broadcast_allocator]*len(self.broadcastable_attributes))
+        allocators.extend([self.allocator.broadcast_allocator]*len(
+                            self.broadcastable_attributes))
 
         return data_accessor_factory(name,self,attributes,allocators)
  
@@ -280,18 +282,11 @@ class BroadcastingDataDomain(object):
             attribute[target_sel] = attribute[source_sel]
         #TODO this below and the allocator function that enables it seem inefficient...
         indices=self.indices
-        for id,selector in self.allocator.iter_selectors():
+        for idx,selector in self.allocator.iter_selectors():
             indices[selector] = idx
 
     def as_array(self,attr):
-        '''Placeholder function.  datadomain.as_array should point to 
-        _get_dirty_array or _get_defragged_array depending on if the 
-        attributes are currently fragmented or not'''
-
-        #don't give the user a function that might overwrite itself to become
-        # more efficient, because the user may keep calling the inefficient 
-        # one! This extra level of function call is not ideal, but better than
-        # letting the user call _get_dirty_array over and over accidentally.
+        '''Return a numpy.array view on an attribute, defragging if necessary'''
         if self.allocator.dirty:
           self.defragment_attributes()
         return self._as_array(attr)

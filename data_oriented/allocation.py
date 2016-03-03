@@ -127,7 +127,12 @@ class ArrayAndBroadcastableAllocator(object):
         #selector_by_id = self.array_allocator.slice_from_id
         selector_by_id = self.array_allocator.selector_from_id
         for id, idx in sorted(self.broadcast_allocator._id2selector_dict.items(),key=lambda x: x[1][0]):
-           yield (id,idx[0],selector_by_id(id))
+           size = idx[1]
+           if size == 1:
+             #always this. TODO get rid of if 
+             yield (idx[0],selector_by_id(id))
+           else:
+             yield (slice(idx[0],idx[0]+size,1),selector_by_id(id))
 
     def flush(self):
         self.array_allocator.flush()
