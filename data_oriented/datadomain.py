@@ -229,6 +229,8 @@ class BroadcastingDataDomain(object):
           #self._version += 1
           for attribute in self.array_attributes:
               attribute.resize(capacity)
+          for accessor in self.registered_domains:
+              accessor.resize(capacity)
           self.allocator.set_array_capacity(capacity)
           array_start = self.allocator.alloc_array(id,count)
       try:

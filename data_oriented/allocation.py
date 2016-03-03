@@ -43,6 +43,8 @@ class DefraggingAllocator(Allocator):
 
     def selector_from_id(self,id):
         start, size = self._id2selector_dict[id]
+        #from tests, index vs slice access is very performance impacting
+        #  this is a worthwile optimization
         if size == 1:
           return start
         else:
