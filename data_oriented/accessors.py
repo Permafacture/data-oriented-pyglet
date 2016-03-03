@@ -43,52 +43,47 @@ class DataAccessor(object):
 # is it worth it providing an optimization (is it even an optimization?) for
 # index vs slice getting and setting?
 
-def singleattribute_getter_factory(domain,attr):
+#def singleattribute_getter_factory(domain,attr):
+#      '''generate a getter using this object's index to the domain arrays
+#      attr is the domain's list of this attribute'''
+#      def getter(self,index_from_id=domain.index_from_id,attr=attr):
+#        index = index_from_id(self._id)
+#        return attr[index]
+#      return getter
+#
+#def singleattribute_setter_factory(domain,attr):
+#      '''generate a setter using this object's index to the domain arrays
+#      attr is the domain's list of this attribute'''
+#      def setter(self, data, index_from_id = domain.index_from_id,attr=attr):
+#        index = index_from_id(self._id)
+#        attr[index] = data
+#      return setter
+
+def attribute_getter_factory(domain,attr,allocator):
       '''generate a getter using this object's index to the domain arrays
       attr is the domain's list of this attribute'''
-      def getter(self,index_from_id=domain.index_from_id,attr=attr):
-        index = index_from_id(self._id)
-        return attr[index]
+      def getter(self,selector_from_id=allocator.selector_from_id,attr=attr):
+        selector = selector_from_id(self._id)
+        return attr[selector]
       return getter
 
-def singleattribute_setter_factory(domain,attr):
+def attribute_setter_factory(domain,attr,allocator):
       '''generate a setter using this object's index to the domain arrays
       attr is the domain's list of this attribute'''
-      def setter(self, data, index_from_id = domain.index_from_id,attr=attr):
-        index = index_from_id(self._id)
-        attr[index] = data
+      def setter(self, data, selector_from_id = allocator.selector_from_id,attr=attr):
+        selector = selector_from_id(self._id)
+        attr[selector] = data
       return setter
 
-def multiattribute_getter_factory(domain,attr):
-      '''generate a getter using this object's index to the domain arrays
-      attr is the domain's list of this attribute'''
-      def getter(self,index_from_id=domain.slice_from_id,attr=attr):
-        index = index_from_id(self._id)
-        return attr[index]
-      return getter
-
-def multiattribute_setter_factory(domain,attr):
-      '''generate a setter using this object's index to the domain arrays
-      attr is the domain's list of this attribute'''
-      def setter(self, data, index_from_id = domain.slice_from_id,attr=attr):
-        index = index_from_id(self._id)
-        attr[index] = data
-      return setter
-
-def data_accessor_factory(name,domain,plural_attributes,single_attributes):
+def data_accessor_factory(name,domain,attributes,allocators):
     '''return a new class to instantiate DataAcessors for this DataDomain'''
     NewAccessor = type(name,(DataAccessor,),{})
 
-    getter = singleattribute_getter_factory
-    setter = singleattribute_setter_factory
-    for attr in single_attributes:
-      setattr(NewAccessor,attr.name,property(getter(domain,attr), setter(domain,attr)))
-
-    getter = multiattribute_getter_factory
-    setter = multiattribute_setter_factory
-    for attr in plural_attributes:
-      setattr(NewAccessor,attr.name,property(getter(domain,attr), setter(domain,attr)))
-
+    getter = attribute_getter_factory
+    setter = attribute_setter_factory
+    for attr, allocator in zip(attributes,allocators):
+      setattr(NewAccessor,attr.name,property(getter(domain,attr,allocator), 
+                                             setter(domain,attr,allocator)))
 
     return NewAccessor
 

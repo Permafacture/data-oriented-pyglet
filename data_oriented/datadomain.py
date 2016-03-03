@@ -90,7 +90,7 @@ class DataDomain(object):
     def __init__(self):
       self.allocator = allocation.DefraggingAllocator()
       self.dealloc = self.allocator.dealloc
-      self.slice_from_id = self.allocator.slice_from_id
+      #self.selector_from_id = self.allocator.selector_from_id
 
       self._next_id = 0
 
@@ -197,8 +197,7 @@ class BroadcastingDataDomain(object):
     def __init__(self):
       self.allocator = allocation.ArrayAndBroadcastableAllocator()
       self.dealloc = self.allocator.dealloc
-      self.index_from_id = self.allocator.index_from_id
-      self.slice_from_id = self.allocator.slice_from_id
+      #self.selector_from_id = self.allocator.selector_from_id
 
       self._next_id = 0
 
@@ -261,12 +260,15 @@ class BroadcastingDataDomain(object):
 
     def generate_accessor(self,name):
         '''construct the DataAccessor specific for this DataDomain'''
-        return data_accessor_factory(name,self,
-                        self.array_attributes,self.broadcastable_attributes)
- 
+        attributes = []
+        allocators = []
+        attributes.extend(self.array_attributes)
+        allocators.extend([self.allocator.array_allocator]*len(self.array_attributes))
+        attributes.extend(self.broadcastable_attributes)
+        allocators.extend([self.allocator.broadcast_allocator]*len(self.broadcastable_attributes))
 
-    #def index_from_id(self,id):
-    #    return self.allocator.index_from_id(id)
+        return data_accessor_factory(name,self,attributes,allocators)
+ 
 
     def defragment_attributes(self):
         array_fixers, broadcastable_fixers = self.allocator.defrag()
@@ -278,7 +280,7 @@ class BroadcastingDataDomain(object):
             attribute[target_sel] = attribute[source_sel]
         #TODO this below and the allocator function that enables it seem inefficient...
         indices=self.indices
-        for id,idx,selector in self.allocator.iter_selectors():
+        for id,selector in self.allocator.iter_selectors():
             indices[selector] = idx
 
     def as_array(self,attr):

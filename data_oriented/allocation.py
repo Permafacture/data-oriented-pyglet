@@ -48,14 +48,6 @@ class DefraggingAllocator(Allocator):
         else:
           return slice(start,start+size,1)
 
-    def index_from_id(self,id):
-        start, size = self._id2selector_dict[id]
-        return start
-
-    def slice_from_id(self,id):
-        start, size = self._id2selector_dict[id]
-        return slice(start,start_size,1)
- 
     def all_valid_selector(self):
         return self.starts[-1]+self.sizes[-1]
 
@@ -126,8 +118,6 @@ class ArrayAndBroadcastableAllocator(object):
         self.array_selector = self.array_allocator.all_valid_selector
         self.broadcast_allocator.all_valid_selector
 
-        self.index_from_id = self.broadcast_allocator.index_from_id
-        self.slice_from_id = self.array_allocator.slice_from_id
         self.dirty = self.array_allocator.dirty #Just for consistency
 
     def iter_selectors(self):
@@ -135,7 +125,7 @@ class ArrayAndBroadcastableAllocator(object):
         that is allocated.'''
 
         #selector_by_id = self.array_allocator.slice_from_id
-        selector_by_id = self.array_allocator.slice_from_id
+        selector_by_id = self.array_allocator.selector_from_id
         for id, idx in sorted(self.broadcast_allocator._id2selector_dict.items(),key=lambda x: x[1][0]):
            yield (id,idx[0],selector_by_id(id))
 
