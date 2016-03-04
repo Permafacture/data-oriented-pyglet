@@ -51,9 +51,14 @@ class DefraggingAllocator(Allocator):
           return slice(start,start+size,1)
 
     def all_valid_selector(self):
-        return self.starts[-1]+self.sizes[-1]
+        if self.sizes:
+          return self.starts[-1]+self.sizes[-1]
+        else:
+          return 0 #TODO ? what should this return??
 
     def alloc(self,id,size):
+        assert (id not in self._id2selector_dict, 
+            "allocing an id that is already alloc'd")
         free_start = super(DefraggingAllocator,self).alloc(size)
         self._id2selector_dict[id] = (free_start,size)
         return free_start
@@ -96,7 +101,7 @@ class DefraggingAllocator(Allocator):
         for id, (start, size) in sorted(id2selector.items(), key=start_getter):
           #TODO, accumulate contiguous source areas
           assert start >= free_start
-          if start != free_start:
+          if start == 0 or start != free_start:
             source_selectors.append(slice(start,start+size,1))
             start = free_start
             target_selectors.append(slice(start,start+size,1))

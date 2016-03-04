@@ -28,7 +28,7 @@ class DataAccessor(object):
       self._id=id
 
     def resize(self,new_size):
-        self._domain.realloc(self._id,new_size)
+        self._domain.safe_resize(self._id,new_size)
 
     def __del__(self):
       self._domain.dealloc(self._id)
@@ -39,25 +39,6 @@ class DataAccessor(object):
 # now, the function is several pointers away.  Probably not worth bothering
 # with though.
 
-#TODO: single and multi are the sameish now that there is only ArrayAttribute
-# is it worth it providing an optimization (is it even an optimization?) for
-# index vs slice getting and setting?
-
-#def singleattribute_getter_factory(domain,attr):
-#      '''generate a getter using this object's index to the domain arrays
-#      attr is the domain's list of this attribute'''
-#      def getter(self,index_from_id=domain.index_from_id,attr=attr):
-#        index = index_from_id(self._id)
-#        return attr[index]
-#      return getter
-#
-#def singleattribute_setter_factory(domain,attr):
-#      '''generate a setter using this object's index to the domain arrays
-#      attr is the domain's list of this attribute'''
-#      def setter(self, data, index_from_id = domain.index_from_id,attr=attr):
-#        index = index_from_id(self._id)
-#        attr[index] = data
-#      return setter
 
 def attribute_getter_factory(domain,attr,allocator):
       '''generate a getter using this object's index to the domain arrays
@@ -75,6 +56,9 @@ def attribute_setter_factory(domain,attr,allocator):
         attr[selector] = data
       return setter
 
+def resize_any_attribute(attribute,new_size):
+    attribute.resize(new_size)
+
 def data_accessor_factory(name,domain,attributes,allocators):
     '''return a new class to instantiate DataAcessors for this DataDomain'''
     NewAccessor = type(name,(DataAccessor,),{})
@@ -82,8 +66,11 @@ def data_accessor_factory(name,domain,attributes,allocators):
     getter = attribute_getter_factory
     setter = attribute_setter_factory
     for attr, allocator in zip(attributes,allocators):
-      setattr(NewAccessor,attr.name,property(getter(domain,attr,allocator), 
+      try:
+        setattr(NewAccessor,attr.name,property(getter(domain,attr,allocator), 
                                              setter(domain,attr,allocator)))
-
+      except AttributeError:
+        #attribute doesn't have a name, so don't provide access to it
+        pass
     return NewAccessor
 
