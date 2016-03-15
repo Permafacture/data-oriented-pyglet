@@ -1,3 +1,11 @@
+#vim
+*.swp
+
+#profiling
+??_profile*
+*.prof
+*.orig
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

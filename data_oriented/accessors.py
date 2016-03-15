@@ -28,17 +28,17 @@ class DataAccessor(object):
       self._id=id
 
     def resize(self,new_size):
-        self._domain.safe_resize(self._id,new_size)
+        self._domain.safe_realloc(self._id,new_size)
+
+    def close(self):
+        self._domain.safe_realloc(self._id,None)
 
     def __del__(self):
-      self._domain.dealloc(self._id)
-
-
-#TODO: instead of using datadomain.index_from_id, find a way of giving the
-# accessor more direct access to the function that gives it the index. Right
-# now, the function is several pointers away.  Probably not worth bothering
-# with though.
-
+      try: 
+        self.close()
+      except Exception as e:
+        import traceback
+        print traceback.print_exc()
 
 def attribute_getter_factory(domain,attr,allocator):
       '''generate a getter using this object's index to the domain arrays

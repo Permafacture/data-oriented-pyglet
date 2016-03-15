@@ -1,6 +1,9 @@
 '''
-First example showing a Data Oriented ORM with object-instance like 
-data accessors
+Example showing a Data Oriented ORM which registers sub domains 
+within other domains, ie: heirarchical data domains
+
+Sub-domains directly update thier region of the parent domain for 
+ best performance.
 
 This file is part of Data Oriented Python.
 Copyright (C) 2016 Elliot Hallmark (permafacture@gmail.com)
@@ -27,60 +30,87 @@ import pyglet
 from pyglet import gl
 from collections import namedtuple
 
-from data_oriented import BroadcastingDataDomain, ArrayAttribute
+from data_oriented import DataDomain, BroadcastingDataDomain, ArrayAttribute
 
-import time
-#Limit run time for profiling
-run_for = 15 #seconds to run test for
-def done_yet(duration = run_for, start=time.time()):
-  return time.time()-start > duration
+class RenderableColoredTraingleStrips(DataDomain):
+    '''Data Domain for rendering colored triangle strips
+    
+     subdomains should know and respect the vert_dtype
+      and color_dtype properties of this domain'''
 
-class PolygonDomain(BroadcastingDataDomain):
-    '''Data Domain for convex polygons to be rendered in pyglet
-    TODO: push DOP related code to a DataDomain class and put polygon
-    rendering specific code into a subclass'''
     dtype_tuple = namedtuple('Dtype',('np','gl'))
     vert_dtype = dtype_tuple(np.float32,gl.GL_FLOAT)
     color_dtype = dtype_tuple(np.float32,gl.GL_FLOAT)
 
     def __init__(self):
-      super(PolygonDomain,self).__init__()
+      super(RenderableColoredTraingleStrips,self).__init__()
 
       #arrayed data
-      self.data = ArrayAttribute('data',5,np.float32)
       self.verts = ArrayAttribute('verts',2,self.vert_dtype.np)
       self.colors = ArrayAttribute('colors',3,self.color_dtype.np)
-      self.array_attributes.extend([self.data,self.verts,self.colors])
+      self.array_attributes.extend([self.verts,self.colors])
 
+      self.DataAccessor = self.generate_accessor('RenderableAccessor')
+
+    def draw(self):
+        gl.glClearColor(0.2, 0.4, 0.5, 1.0)
+        gl.glBlendFunc (gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)                             
+        gl.glEnable (gl.GL_BLEND)                                                            
+        gl.glEnable (gl.GL_LINE_SMOOTH);                                                     
+        gl.glEnableClientState(gl.GL_VERTEX_ARRAY)
+        gl.glEnableClientState(gl.GL_COLOR_ARRAY)
+
+        n = len(self.as_array(self.verts))
+        #TODO verts._buffer.ctypes.data is awkward
+        gl.glVertexPointer(2, self.vert_dtype.gl, 0, self.verts._buffer.ctypes.data)
+        gl.glColorPointer(3,  self.color_dtype.gl, 0, self.colors._buffer.ctypes.data)
+        gl.glDrawArrays(gl.GL_TRIANGLE_STRIP, 0, n)
+
+class Polygon(DataDomain):
+    '''I'm thinking it would be nice to have a class to tie together the 
+    vertex generating and color generating data domains as an interface to
+    the triangle strip renderer.  But this is just a thought / TODO'''
+
+class RotateablePolygon(BroadcastingDataDomain):
+    '''Data Domain for convex polygons to be rendered in pyglet
+
+    registers with RenderableColoredTraingleStrips
+    '''
+
+    def __init__(self,renderable_domain):
+      super(RotateablePolygon,self).__init__()
+      #TODO manage datatypes gracefully...
+      v_dtype = renderable_domain.vert_dtype.np
+      c_dtype = renderable_domain.color_dtype.np
+
+      #arrayed data
+      self.data = ArrayAttribute('data',5,v_dtype)
+      #self.color_cache=ArrayAttribute(3,cdtype)  TODO: use ColoredPolygon
+      #TODO Don't pass allocator here, use array_attributes list to imply allocator
+      self.render_accessor = self.register_domain(renderable_domain,self.allocator.array_allocator)
+      self.array_attributes.extend([self.data])
+
+      #TODO is ArrayAttribute essentially the same as register_domain?
       #property data
-      self.position = ArrayAttribute('position',2,np.float32)
-      self.angle = ArrayAttribute('angle',1,np.float32)
-      self.broadcastable_attributes.extend([self.position, self.angle])
+      self.position = ArrayAttribute('position',2,v_dtype)
+      self.angle = ArrayAttribute('angle',1,v_dtype)
+      self.color = ArrayAttribute('color',3,c_dtype)
+      self.broadcastable_attributes.extend([self.position, self.angle, self.color])
+
  
       self.DataAccessor = self.generate_accessor('PolygonDataAccessor')
 
-
-    def polyOfN(self,radius,n):
-        '''helper function for making polygons'''
-        r=radius
-        if n < 3:
-            n=3
-        da = 2*pi/(n)     #angle between divisions
-        return [[r*cos(da*x),r*sin(da*x)] for x in range(n)]
-
-
-    def add(self,n,r,position=(0,0),color=(1,0,0)):
-      '''add a regular convex polygon with n sides or radius r'''
+    def add(self,pts,position=(0,0),color=(1,0,0),**kwargs):
+      '''add a polygon defined by its pts'''
       #TODO assert shape of pos and color
-      pts = self.polyOfN(r,n)
       data = self.gen_data(pts)
-      colors = np.ones((len(data),3),self.color_dtype.np)*color
-      kwargs = {'position':position,
-                'colors':colors,
-                'data':data,
-                'angle':0}
-      return super(PolygonDomain,self).add(**kwargs)
+      kwargs.update({'position':position,
+                     'color':color,
+                     'data':data,
+                     'angle':0})
+      accessor = super(RotateablePolygon,self).add(**kwargs) 
 
+      return accessor
 
     def gen_data(self,pts): 
         l = len(pts)
@@ -105,20 +135,25 @@ class PolygonDomain(BroadcastingDataDomain):
     def update_vertices(self):
         '''Update vertices to render based on positions and angles communicated
         through the data accessors'''
-
         as_array = self.as_array
-        pts = as_array(self.verts)
+
         initiald = as_array(self.data)
+        #TODO: would be more efficient to operate on the BroadcastableAttributes
+        # prior to broadcasting.  How to offer this flexibility without
+        # complicating the interface?  going with less efficient for now
         angles = as_array(self.angle)
         positions = as_array(self.position)
+
         cos_ts, sin_ts = cos(angles), sin(angles)
         cos_ts -= 1
         #here's a mouthfull.  see contruction of initial_data in init.  sum-difference folrmula applied 
         #and simplified.  work it out on paper if you don't believe me.
         xs, ys, rs, xhelpers, yhelpers = (initiald[:,x] for x in range(5))
-       
+        pts = self.render_accessor.verts  #TODO: ech! every operation below is 
+        #pts = self.render_accessor.verts[:] 
+        #  using the setter of the accessor! maybe verts[:]?
         pts[:,0] = xhelpers*cos_ts
-        pts[:,1] = yhelpers*sin_ts      
+        pts[:,1] = yhelpers*sin_ts
         pts[:,0] -= pts[:,1]                 
         pts[:,0] *= rs                
         pts[:,0] += xs                
@@ -131,41 +166,61 @@ class PolygonDomain(BroadcastingDataDomain):
         pts[:,1] += ys
         pts[:,1] += positions[:,1]
 
-    def draw(self):
-        gl.glClearColor(0.2, 0.4, 0.5, 1.0)
-        gl.glBlendFunc (gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)                             
-        gl.glEnable (gl.GL_BLEND)                                                            
-        gl.glEnable (gl.GL_LINE_SMOOTH);                                                     
-        gl.glEnableClientState(gl.GL_VERTEX_ARRAY)
-        gl.glEnableClientState(gl.GL_COLOR_ARRAY)
+    def update_colors(self):
+        local_colors = self.as_array(self.color)
+        self.render_accessor.colors[:] = local_colors 
 
-        n = len(self.as_array(self.verts))
-        #TODO verts._buffer.ctypes.data is awkward
-        gl.glVertexPointer(2, self.vert_dtype.gl, 0, self.verts._buffer.ctypes.data)
-        gl.glColorPointer(3,  self.color_dtype.gl, 0, self.colors._buffer.ctypes.data)
-        gl.glDrawArrays(gl.GL_TRIANGLE_STRIP, 0, n)
+    def update(self):
+        self.update_vertices()
+        self.update_colors()
+
+
+##
+#
+# Helper functions for making polygons
+#
+##
+
+def polyOfN(radius,n):
+    '''helper function for making polygons'''
+    r=radius
+    if n < 3:
+        n=3
+    da = 2*pi/(n)     #angle between divisions
+    return [[r*cos(da*x),r*sin(da*x)] for x in range(n)]
+
+def random_poly(width,height,domain):
+    position = (random()*width,random()*height)
+    r = random()*50
+    n = int(random()*10)+3
+    pts = polyOfN(r,n)
+    color = (random(),random(),random())
+    return domain.add(pts,position,color)
+
+
 
 if __name__ == '__main__':
+    from random import random
+    import time
+    #Limit run time for profiling
+    run_for = 15 #seconds to run test for
+    def done_yet(duration = run_for, start=time.time()):
+      return time.time()-start > duration
+
     width, height = 640,480
     window = pyglet.window.Window(width=width, height=height, vsync=False)
     fps_display = pyglet.clock.ClockDisplay()
     text = """Data Domain"""
     label = pyglet.text.HTMLLabel(text, x=10, y=height-10)
 
-    test_domain=PolygonDomain()
-    create = test_domain.add
+    render_domain = RenderableColoredTraingleStrips()
+    polygon_domain1 = RotateablePolygon(render_domain)
 
-    ## Create shapes
-    n=100
-    positions = [(x*width,y*height) for x,y in np.random.random((n,2))]
-    poly_args = [(r*50,int(m*10)+3) for r,m in np.random.random((n,2))] 
-    colors = np.random.random((n,3)).astype(test_domain.color_dtype.np)
+    n1=150
+    ents1 = [random_poly(width,height,polygon_domain1) for _ in range(n1)]
 
+    rates1 = list(np.random.random(n1)*.01)
 
-    ents = [create(m,r,position=pos, color=col) for (r,m),pos,col in zip(poly_args,positions,colors)]
-
-    angles= [0]*n
-    rates = list(np.random.random(n)*.02)
 
     @window.event
     def on_draw():
@@ -175,13 +230,14 @@ if __name__ == '__main__':
           pyglet.app.exit()
 
         window.clear()
-        for i, ent in enumerate(ents):
-          ent.angle+=rates[i]
+        for i, ent in enumerate(ents1):
+          ent.angle+=rates1[i]
 
-        test_domain.update_vertices()
-        test_domain.draw()
+        polygon_domain1.update()
+        render_domain.draw()
         fps_display.draw()
 
     pyglet.clock.schedule(lambda _: None)
 
     pyglet.app.run()
+

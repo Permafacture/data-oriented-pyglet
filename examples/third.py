@@ -122,7 +122,7 @@ class Convex(object):
 
 
 ## Create shapes
-n=100
+n=150
 size = 5 #number of sides
 positions = [(x*width,y*height) for x,y in np.random.random((n,2))]
 poly_args = [(r*50,size) for r,m in np.random.random((n,2))] 

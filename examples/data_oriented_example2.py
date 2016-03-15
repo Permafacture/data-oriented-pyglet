@@ -64,19 +64,19 @@ class RenderableColoredTraingleStrips(DataDomain):
 
       self.DataAccessor = self.generate_accessor('RenderableAccessor')
 
-    def register(self,sub_domain):
-        self._registered_domains.append(sub_domain)
+    #def register(self,sub_domain):
+    #    self._registered_domains.append(sub_domain)
 
-    def update(self):
-        # flush verts and colors
-        self.allocator.flush()
-        for domain in self._registered_domains:
-          n = domain.how_many()
-          start = self.safe_alloc(n,self._next_id) #TODO make an array only datadomain/allocator
-          selector = slice(start,start+n,1)
-          domain.update(self.colors[selector],self.verts[selector])
-          self._next_id += 1
-        self._next_id = 0
+    #def update(self):
+    #    # flush verts and colors
+    #    self.allocator.flush()
+    #    for domain in self._registered_domains:
+    #      n = domain.how_many()
+    #      start = self.safe_alloc(n,self._next_id) #TODO make an array only datadomain/allocator
+    #      selector = slice(start,start+n,1)
+    #      domain.update(self.colors[selector],self.verts[selector])
+    #      self._next_id += 1
+    #    self._next_id = 0
 
     def draw(self):
         gl.glClearColor(0.2, 0.4, 0.5, 1.0)
@@ -105,7 +105,6 @@ class RotateablePolygon(BroadcastingDataDomain):
 
     def __init__(self,renderable_domain):
       super(RotateablePolygon,self).__init__()
-      renderable_domain.register(self)
       #TODO manage datatypes gracefully...
       v_dtype = renderable_domain.vert_dtype.np
       c_dtype = renderable_domain.color_dtype.np
@@ -113,24 +112,20 @@ class RotateablePolygon(BroadcastingDataDomain):
       #arrayed data
       self.data = ArrayAttribute('data',5,v_dtype)
       #self.color_cache=ArrayAttribute(3,cdtype)  TODO: use ColoredPolygon
+      #TODO Don't pass allocator here, use array_attributes list to imply allocator
+      #TODO don't put accessors in array_attributes!
+      self.render_accessor = self.register_domain(renderable_domain,self.allocator.array_allocator)
       self.array_attributes.extend([self.data])
 
+      #TODO is ArrayAttribute essentially the same as register_domain?
       #property data
       self.position = ArrayAttribute('position',2,v_dtype)
       self.angle = ArrayAttribute('angle',1,v_dtype)
       self.color = ArrayAttribute('color',3,c_dtype)
-
       self.broadcastable_attributes.extend([self.position, self.angle, self.color])
+
  
       self.DataAccessor = self.generate_accessor('PolygonDataAccessor')
-
-
-    def how_many(self):
-        '''return the length of the region of memory this domain is able
-        to update, so that the parent domain can allocate space within its
-        arrays and provide direct access to the area of memory this domain
-        will be allowed to modify'''
-        return self.as_array(self.data).shape[0]
 
     def add(self,pts,position=(0,0),color=(1,0,0),**kwargs):
       '''add a polygon defined by its pts'''
@@ -140,7 +135,9 @@ class RotateablePolygon(BroadcastingDataDomain):
                      'color':color,
                      'data':data,
                      'angle':0})
-      return super(RotateablePolygon,self).add(**kwargs)
+      accessor = super(RotateablePolygon,self).add(**kwargs) 
+
+      return accessor
 
     def gen_data(self,pts): 
         l = len(pts)
@@ -162,11 +159,7 @@ class RotateablePolygon(BroadcastingDataDomain):
         return [(pt[0],pt[1],sqrt(pt[0]**2+pt[1]**2),
               cos(atan2(pt[1],pt[0])),sin(atan2(pt[1],pt[0]))) for pt in wound]
 
-    def update(self,colors,verts):
-        self.update_vertices(verts)
-        self.update_colors(colors)
-
-    def update_vertices(self,verts):
+    def update_vertices(self):
         '''Update vertices to render based on positions and angles communicated
         through the data accessors'''
         as_array = self.as_array
@@ -183,9 +176,9 @@ class RotateablePolygon(BroadcastingDataDomain):
         #here's a mouthfull.  see contruction of initial_data in init.  sum-difference folrmula applied 
         #and simplified.  work it out on paper if you don't believe me.
         xs, ys, rs, xhelpers, yhelpers = (initiald[:,x] for x in range(5))
-       
-        pts = verts  #directly accessing arrays to be rendered
-      
+        pts = self.render_accessor.verts  #TODO: ech! every operation below is 
+        #pts = self.render_accessor.verts[:] 
+        #  using the setter of the accessor! maybe verts[:]?
         pts[:,0] = xhelpers*cos_ts
         pts[:,1] = yhelpers*sin_ts
         pts[:,0] -= pts[:,1]                 
@@ -200,9 +193,13 @@ class RotateablePolygon(BroadcastingDataDomain):
         pts[:,1] += ys
         pts[:,1] += positions[:,1]
 
-    def update_colors(self,colors):
+    def update_colors(self):
         local_colors = self.as_array(self.color)
-        colors[:] = local_colors #[:] needed to assign data into array
+        self.render_accessor.colors[:] = local_colors 
+
+    def update(self):
+        self.update_vertices()
+        self.update_colors()
 
 class ColorChangingRotateablePolygon(RotateablePolygon):
     '''add ability to change color from black to self.color'''
@@ -224,8 +221,9 @@ class ColorChangingRotateablePolygon(RotateablePolygon):
                 'angle':0}
       return super(ColorChangingRotateablePolygon,self).add(pts,**kwargs)
 
-    def update_colors(self,colors):
+    def update_colors(self):
         as_array = self.as_array
+        colors = self.render_accessor.colors
         #TODO, again it would be more efficient to work with the raw
         # BroadcastableAttributes first before broadcasting.
         local_colors = as_array(self.color) * as_array(self.intensity)[:,None]
@@ -257,8 +255,10 @@ if __name__ == '__main__':
     label = pyglet.text.HTMLLabel(text, x=10, y=height-10)
 
     render_domain = RenderableColoredTraingleStrips()
+
     polygon_domain1 = RotateablePolygon(render_domain)
     polygon_domain2 = ColorChangingRotateablePolygon(render_domain)
+
     poly_adder1 = RegularPolygonAdder(polygon_domain1)
     poly_adder2 = RegularPolygonAdder(polygon_domain2)
 
@@ -314,7 +314,8 @@ if __name__ == '__main__':
           ent.angle+=rates2[i]
           ent.inc_intensity()
 
-        render_domain.update()
+        polygon_domain1.update()
+        polygon_domain2.update()
         render_domain.draw()
         fps_display.draw()
 

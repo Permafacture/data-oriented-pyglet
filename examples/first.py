@@ -125,7 +125,7 @@ class Convex(object):
         self.vertlist.colors=self.colors
 
 
-n=100
+n=150
 positions = [(x*width,y*height) for x,y in np.random.random((n,2))]
 poly_args = [(r*50,int(m*10)+3) for r,m in np.random.random((n,2))] 
 colors = [map(lambda x: int(x*255),vals) for vals in np.random.random((n,3))]

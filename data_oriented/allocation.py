@@ -19,11 +19,25 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
-from pyglet.graphics.allocation import Allocator, AllocatorMemoryException
 
 DEFAULT_SIZE = 1
 
-class DefraggingAllocator(Allocator):
+class AllocatorMemoryException(Exception):
+    '''The buffer is not large enough to fulfil an allocation.
+
+    Raised by `Allocator` methods when the operation failed due to lack of
+    buffer space.  The buffer should be increased to at least
+    requested_capacity and then the operation retried (guaranteed to
+    pass second time).
+    
+    this exception was taken from pyglet.graphics.allocation
+    '''
+
+    def __init__(self, requested_capacity):
+        self.requested_capacity = requested_capacity
+
+
+class DefraggingAllocator(object):
     '''Deviates from the design decisions of pyglet.graphics.allocation
     by keeping track of allocated regions and allowing for compaction.
 
@@ -31,15 +45,24 @@ class DefraggingAllocator(Allocator):
 
     def __init__(self,capacity=0):
         self._id2selector_dict = {}
+        self._zero_sized = []
         self.dirty = False
-        super(DefraggingAllocator,self).__init__(capacity)
+        self.capacity=capacity
+
+    def set_capacity(self, size):
+        '''Resize the maximum buffer size.
+        
+        The capaity cannot be reduced.
+        '''
+        assert size > self.capacity
+        self.capacity = size
+
 
     def flush(self):
         '''forget all allocations'''
-        self.starts = []
-        self.sizes = []
         self.dirty=False
         self._id2selector_dict = {}
+        self._zero_sized = []
 
     def selector_from_id(self,id):
         start, size = self._id2selector_dict[id]
@@ -50,32 +73,66 @@ class DefraggingAllocator(Allocator):
         else:
           return slice(start,start+size,1)
 
+    def size_from_id(self,id):
+        id2sel = self._id2selector_dict
+        if id in id2sel:
+           start, size = id2sel[id]
+           return size
+        elif id in self._zero_sized:
+           return 0
+        else:
+           raise ValueError("id %s not allocated" % id)
+
     def all_valid_selector(self):
-        if self.sizes:
-          return self.starts[-1]+self.sizes[-1]
+        #TODO is it worth making this more efficient?
+        a = sorted(self._id2selector_dict.values()) #sorts by value[0] = start
+        if a:
+          return a[-1][0]+a[-1][1]  #add last start and last size
         else:
           return 0 #TODO ? what should this return??
 
     def alloc(self,id,size):
-        assert (id not in self._id2selector_dict, 
-            "allocing an id that is already alloc'd")
-        free_start = super(DefraggingAllocator,self).alloc(size)
-        self._id2selector_dict[id] = (free_start,size)
-        return free_start
+        '''allocate space in the buffer. Raises an AllocatorMemoryException if
+        request to alloc cannot be fufilled with current capacity.
 
-    def realloc(self,id,new_size):
-        '''Dealloc id and then realloc with a new size'''
-        #Deviates from philosophy of original dealloc because compaction makes
-        #it unlikely that there will be much free space within the buffer,
-        #thus those optimizations are not advantageous.
-        #if self._id2selector_dict[id][1] == 0 #probably not an optimization
-        self.dealloc(id)
-        return self.alloc(id,new_size)
+
+        This will not fragment the buffer.
+        '''
+        assert id not in self._id2selector_dict,"alloc'ing an id that is already alloc'd"
+        assert id not in self._zero_sized, "alloc'ing an id that is already alloc'd"
+        assert size >= 0, "alloc size must be >= 0"
+       
+
+        #TODO, really should use pyglet.allocator behaviour and try to alloc
+        #  within an empty space since realloc dealloca and then allocs again
+        if size == 0:
+          self._zero_sized.append(id)
+        elif size > 0:
+          free_start = self.all_valid_selector()  #+1
+          new_size = free_start + size
+          if new_size > self.capacity:
+             raise AllocatorMemoryException(new_size)
+          #else
+          self._id2selector_dict[id] = (free_start,size)
+          return free_start
 
     def dealloc(self,id):
-        start, size = self._id2selector_dict.pop(id)
-        self.dirty = True
-        super(DefraggingAllocator,self).dealloc(start,size)
+        if id in self._id2selector_dict:
+          start, size = self._id2selector_dict.pop(id)
+          self.dirty = True
+        elif id in self._zero_sized:
+          self._zero_sized.remove(id)
+
+    #def realloc(self,id,new_size):
+    #    '''Dealloc id and then realloc with a new size'''
+    #    #Deviates from philosophy of original dealloc because compaction makes
+    #    #it unlikely that there will be much free space within the buffer,
+    #    #thus those optimizations are not advantageous.
+    #    #if self._id2selector_dict[id][1] == 0 #probably not an optimization
+    #    self.dealloc(id)
+    #    print "allocator realloc:",id,new_size
+    #    return self.alloc(id,new_size)
+
 
     #def get_allocated_regions(self):
     #    #should give same result as base Allocator, but just wanted to
@@ -91,11 +148,10 @@ class DefraggingAllocator(Allocator):
             for source_sel, target_sel in zip(defrag_allocator.defrag())
                 arr[target_sel] = arr[source_sel]
         '''
+        #print "defrag"
         free_start = 0 #start at the begining
         source_selectors = []
         target_selectors = []
-        starts=[]
-        sizes = []
         id2selector = self._id2selector_dict
         start_getter = lambda x: x[1][0] #sort by starts
         for id, (start, size) in sorted(id2selector.items(), key=start_getter):
@@ -106,12 +162,8 @@ class DefraggingAllocator(Allocator):
             start = free_start
             target_selectors.append(slice(start,start+size,1))
             id2selector[id] = (start,size)
-            starts.append(start)
-            sizes.append(size)
           free_start = start+size
 
-        self.starts = starts
-        self.sizes = sizes
         self.dirty = False
         return source_selectors, target_selectors
 
@@ -155,7 +207,7 @@ class ArrayAndBroadcastableAllocator(object):
     def last_valid_index(self):
         #TODO This isn;t well named since its for arrays. HAck to get things working now
         allocator = self.array_allocator
-        return allocator.starts[-1]+allocator.sizes[-1]
+        return allocator.all_valid_selector()
 
     def set_array_capacity(self,capacity):
         self.array_allocator.set_capacity(capacity)
