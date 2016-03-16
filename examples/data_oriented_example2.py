@@ -23,8 +23,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
 
-#TODO: are `register` and `add` different?
-
 import numpy as np
 from numpy import sin, cos, pi, sqrt
 from math import atan2
@@ -37,25 +35,15 @@ from data_oriented import DataDomain, BroadcastingDataDomain, ArrayAttribute
 class RenderableColoredTraingleStrips(DataDomain):
     '''Data Domain for rendering colored triangle strips
     
-    sub domains that register with this one must provide the following 
-    interface:
-  
-      how_many() -> returns n = number of vertex/color pairs to render
- 
-      update(colors, verts) -> take arrays colors and verts and 
-        insert n colors and verts into those arrays where n is what
-        `how_many` reported. 
-
-      additionally, subdomains should know and respect the vert_dtype
-      and color_dtype properties of this domain'''
-
+    exposes verts and colors attributes, 
+      and renders them as gl.GL_TRIANGLE_STRIP
+    '''
     dtype_tuple = namedtuple('Dtype',('np','gl'))
     vert_dtype = dtype_tuple(np.float32,gl.GL_FLOAT)
     color_dtype = dtype_tuple(np.float32,gl.GL_FLOAT)
 
     def __init__(self):
       super(RenderableColoredTraingleStrips,self).__init__()
-      self._registered_domains = [] #this should be DataDomain functionality
 
       #arrayed data
       self.verts = ArrayAttribute('verts',2,self.vert_dtype.np)
@@ -63,20 +51,6 @@ class RenderableColoredTraingleStrips(DataDomain):
       self.array_attributes.extend([self.verts,self.colors])
 
       self.DataAccessor = self.generate_accessor('RenderableAccessor')
-
-    #def register(self,sub_domain):
-    #    self._registered_domains.append(sub_domain)
-
-    #def update(self):
-    #    # flush verts and colors
-    #    self.allocator.flush()
-    #    for domain in self._registered_domains:
-    #      n = domain.how_many()
-    #      start = self.safe_alloc(n,self._next_id) #TODO make an array only datadomain/allocator
-    #      selector = slice(start,start+n,1)
-    #      domain.update(self.colors[selector],self.verts[selector])
-    #      self._next_id += 1
-    #    self._next_id = 0
 
     def draw(self):
         gl.glClearColor(0.2, 0.4, 0.5, 1.0)

@@ -18,6 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
+
 #TODO: 
 #  pyglet probably has the domain versioning for a good reason. Figure out
 #    what exactly and likely implement it here.
@@ -70,7 +71,7 @@ class ArrayAttribute(object):
 
     def __setitem__(self,selector,data):
       self._buffer[selector]=data
-      assert self.datatype == self._buffer.dtype #bug if numpy changes dtype
+      assert self.datatype == self._buffer.dtype, 'numpy dtype has not changed'
 
     def _resize_multidim(self,count):
       self._buffer.resize((count,self._dim))
@@ -123,27 +124,24 @@ class DataDomain(object):
 
       reg_d = self.registered_domains
       if reg_d:
-        for accessor, allocator in reg_d:
+        for accessor in reg_d:
           accessor.resize(count)
 
     def safe_dealloc(self,id):
         #print "data safe dealloc:",id
         array_size = self.allocator.array_allocator.size_from_id(id)
         self.allocator.dealloc(id)
-        for accessor, allocator in self.registered_domains:
+        for accessor in self.registered_domains:
           accessor.resize(-array_size) 
 
     def safe_realloc(self,id,count):
         '''reallocate space in arrays. If count is None, deallocate the space'''
-        old_size = self.allocator.size_from_id(id)
-        #Must get old size before deallocating, even if not reallocating
-        #print"datadomain safe_realloc"
         #print "Data safe_realloc:",id
+        #Must get old size before deallocating, even if not reallocating
+        old_size = self.allocator.size_from_id(id)
         self.allocator.dealloc(id)
         if count is not None:
           self.safe_alloc(id, old_size+count)
-        #else:
-          #print "dealloced:",old_size
 
     def register_domain(self,domain):
         '''register another DataDomain to be accessed from within this one
@@ -191,7 +189,8 @@ class DataDomain(object):
           raise ValueError(
                 "Cannot return non Attribute type %s as an array" % type(attr))
 
-    def add_empty(self,size):
+    def add_empty(self,size): #TODO is this only ever used to make zero sized arrays?
+        #     see 
         '''create space in attribute arrays without initializing the data'''
         id =self._next_id 
         self._next_id += 1
@@ -200,25 +199,6 @@ class DataDomain(object):
         
 
     def add(self,*args,**kwargs):
-      #  '''add an instance of properties to the domain.
-      #  returns a data accessor to allow for interaction with this instance of 
-      #  data.'''  
-      #  
-      #  id =self._next_id 
-      #  self._next_id += 1
-
-      #  #TODO this could be more efficient.
-      #  n = None
-      #  arrayed_names = {attr.name for attr in self.array_attributes}
-      #  for key,val in kwargs.items():
-      #    if key in arrayed_names:
-      #      if n is None:
-      #        n = len(val)
-      #        array_start = self.safe_alloc(id,n)
-      #        selector = slice(array_start,array_start+n,1)
-      #      getattr(self,key)[selector] = val
-
-      #  return self.DataAccessor(self,id)
       '''add an instance of properties to the domain.
       returns a data accessor to allow for interaction with this instance of 
       data.'''  
@@ -228,14 +208,6 @@ class DataDomain(object):
       
       #TODO tidy this up by making a finalize method that __init__ calls that
       # creates the DataAccessor and sets of arrayed and broadcastable names.
-      # finalize might also handle discovering if this domain has any
-      # BroadcastableAttributes and decide between two `add`s, where one expects 
-      # not to have BroadcastableAttributes and the other does.  ie: no indices
-      # right now, assumes at least one BroadcastableAttribute
-
-      #TODO this could be more efficient.
-      #TODO is it a mistake to resize accessors here? maybe it should be up 
-      #  to the caller to add to the registered domains
       n = None
       arrayed_attr_names = [attr.name for attr in self.array_attributes]
 
@@ -249,8 +221,10 @@ class DataDomain(object):
             selector = slice(array_start,array_start+n,1)
           getattr(self,key)[selector] = val
 
-      for accessor, allocator in self.registered_domains:
-          #Up to caller to put data in here if desired
+      #TODO add should beable to pass optional keyword args to set the values
+      # of these inherited attributes.  Right now this relies on child domain
+      # updating these values before the parent does math on the array.
+      for accessor in self.registered_domains:
           accessor.resize(n)
 
       return self.DataAccessor(self,id)
@@ -279,7 +253,8 @@ class BroadcastingDataDomain(object):
 
       #property data
       self.broadcastable_attributes = []
-      self.registered_domains = [] 
+      self.registered_domains = []
+      #TODO is this comment currently accurate?
       #__init__ of subclasses should do this:
       #self.DataAccessor = self.generate_accessor('GenericDataAccessor')
 
@@ -298,10 +273,6 @@ class BroadcastingDataDomain(object):
       except allocation.AllocatorMemoryException, e:
           capacity = _nearest_pow2(e.requested_capacity)
           #self._version += 1
-          #Why isn't this valid? for attribute in self.array_attributes if isinstance(attribute,ArrayAttribute):
-
-          #TODO this is ugly
-          #Should array_attributes 
           for attribute in self.array_attributes:
               attribute.resize(capacity)
           self.allocator.set_array_capacity(capacity)
@@ -309,7 +280,7 @@ class BroadcastingDataDomain(object):
 
       reg_d = self.registered_domains
       if reg_d:
-        for accessor, allocator in reg_d:
+        for accessor in reg_d:
           accessor.resize(count)
 
 
@@ -328,16 +299,14 @@ class BroadcastingDataDomain(object):
         #print "Broad safe dealloc"
         array_size = self.allocator.array_allocator.size_from_id(id)
         self.allocator.dealloc(id)
-        #print "got here"
-        for accessor, allocator in self.registered_domains:
-          #print "  dealloc registered doamin"
+        for accessor in self.registered_domains:
           accessor.resize(-array_size) 
 
     def safe_realloc(self,id,count):
         '''reallocate space in arrays. If count is None, deallocate the space'''
-
         #Must get old size before deallocating, even if not reallocating
         #print "Broad safe realloc"
+        #TODO I don't think count=None is necessary any more. just dealloc
         old_size = self.allocator.array_allocator.size_from_id(id)
         self.safe_dealloc(id)
         if count is not None:
@@ -351,7 +320,7 @@ class BroadcastingDataDomain(object):
         assert size == 0 #right now, must register while this domain is empty
         #^why would you register a new domain at any other point than __init__
         accessor = domain.add_empty(size) #an accessor to the *other* domain
-        self.registered_domains.append((accessor,allocator))
+        self.registered_domains.append(accessor)
         return accessor
 
     def generate_accessor(self,name):

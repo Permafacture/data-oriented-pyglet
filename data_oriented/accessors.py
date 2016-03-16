@@ -40,6 +40,9 @@ class DataAccessor(object):
         import traceback
         print traceback.print_exc()
 
+    def __repr__(self):
+      return "<Accessor #%s of %s>"%(self._id,self.domain)
+
 def attribute_getter_factory(domain,attr,allocator):
       '''generate a getter using this object's index to the domain arrays
       attr is the domain's list of this attribute'''
