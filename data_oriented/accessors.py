@@ -26,25 +26,18 @@ class DataAccessor(object):
       '''Knows what domain it came from and its unique id within that domain'''
       self._domain = domain
       self._id=id
+      self.__closed = False
 
     def resize(self,new_size):
         self._domain.safe_realloc(self._id,new_size)
 
     def close(self):
-        self._domain.safe_realloc(self._id,None)
+        self.__closed = True
+        self._domain.safe_dealloc(self._id)
 
     def __del__(self):
-      if __debug__:
-          try: 
-            self.close()
-          except Exception as e:
-            import traceback
-            print traceback.print_exc()
-      else:
-        try:
+        if not self.__closed:
           self.close()
-        except:
-          pass
 
     def __repr__(self):
       return "<Accessor #%s of %s>"%(self._id,self.domain)

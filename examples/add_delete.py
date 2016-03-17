@@ -86,7 +86,7 @@ class RotateablePolygon(BroadcastingDataDomain):
       #self.color_cache=ArrayAttribute(3,cdtype)  TODO: use ColoredPolygon
       #TODO Don't pass allocator here, use array_attributes list to imply allocator
       self.render_accessor = self.register_domain(renderable_domain,self.allocator.array_allocator)
-      self.array_attributes.extend([self.data])
+      self.array_attributes.extend([self.data,self.render_accessor])
 
       #TODO is ArrayAttribute essentially the same as register_domain?
       #property data
@@ -214,7 +214,7 @@ if __name__ == '__main__':
     render_domain = RenderableColoredTraingleStrips()
     polygon_domain1 = RotateablePolygon(render_domain)
 
-    n=150
+    n=15
     ents = [random_poly(width,height,polygon_domain1) for _ in range(n)]
 
     rates = list(np.random.random(n)*.01)
@@ -244,5 +244,5 @@ if __name__ == '__main__':
       del ent
     
     pyglet.clock.schedule(lambda _: None)
-    pyglet.clock.schedule_interval(delete, .2) 
+    pyglet.clock.schedule_interval(delete, 1) 
     pyglet.app.run()

@@ -113,25 +113,27 @@ class DataDomain(object):
       try:
           array_start = self.allocator.alloc(id,count)
       except allocation.AllocatorMemoryException, e:
-          capacity = _nearest_pow2(e.requested_capacity)
+          #capacity = _nearest_pow2(e.requested_capacity)
+          capacity = e.requested_capacity  #TODO disabling overprovisioning
           #self._version += 1
           #Why isn't this valid? for attribute in self.array_attributes if isinstance(attribute,ArrayAttribute):
           for attribute in ( a for a in self.array_attributes if isinstance(a,ArrayAttribute)):
               attribute.resize(capacity)
           self.allocator.set_capacity(capacity)
           array_start = self.allocator.alloc(id,count)
+
+      #TODO is overprovisioning remains disabled, then this can be simplified
+      for accessor in ( a for a in self.array_attributes if isinstance(a,DataAccessor)):
+          accessor.resize(count)
+
       return array_start
 
-      reg_d = self.registered_domains
-      if reg_d:
-        for accessor in reg_d:
-          accessor.resize(count)
 
     def safe_dealloc(self,id):
         #print "data safe dealloc:",id
-        array_size = self.allocator.array_allocator.size_from_id(id)
+        array_size = self.allocator.size_from_id(id)
         self.allocator.dealloc(id)
-        for accessor in self.registered_domains:
+        for accessor in ( a for a in self.array_attributes if isinstance(a,DataAccessor)):
           accessor.resize(-array_size) 
 
     def safe_realloc(self,id,count):
@@ -150,7 +152,6 @@ class DataDomain(object):
         assert size == 0 #right now, must register while this domain is empty
         #^why would you register a new domain at any other point than __init__
         accessor = domain.add_empty(size) #an accessor to the *other* domain
-        self.registered_domains.append(accessor)
         return accessor
  
 
@@ -160,14 +161,17 @@ class DataDomain(object):
 
         attributes = []
         allocators = []
-        attributes.extend(self.array_attributes)
-        allocators.extend([self.allocator]*len(self.array_attributes))
+        array_attributes = [a for a in self.array_attributes if isinstance(a,ArrayAttribute)]
+        attributes.extend(array_attributes)
+        allocators.extend([self.allocator]*len(array_attributes))
         return data_accessor_factory(name,self,attributes,allocators)
  
 
     def defragment_attributes(self):
+        #TODO, this ignores defragmenting the allocators :(
         array_fixers = self.allocator.defrag()
         for attribute in self.array_attributes:
+          #TODO what happens if I just get rid of this check?
           if isinstance(attribute,ArrayAttribute):
             for source_sel, target_sel in zip(*array_fixers):
               attribute[target_sel] = attribute[source_sel]
@@ -181,11 +185,12 @@ class DataDomain(object):
 
     def _as_array(self,attr):
         '''return the valid portions of the attribute buffer.'''
-
+        
         array_selector = slice(0, self.allocator.all_valid_selector(),1)
         if isinstance(attr,ArrayAttribute):
           return attr[array_selector]
         else:
+          #TODO can I really not do this with an accessor?
           raise ValueError(
                 "Cannot return non Attribute type %s as an array" % type(attr))
 
@@ -209,8 +214,8 @@ class DataDomain(object):
       #TODO tidy this up by making a finalize method that __init__ calls that
       # creates the DataAccessor and sets of arrayed and broadcastable names.
       n = None
-      arrayed_attr_names = [attr.name for attr in self.array_attributes]
-
+      arrayed_attr_names = (a.name for a in self.array_attributes if isinstance(a,ArrayAttribute))
+ 
       for key in arrayed_attr_names:
           try: val = kwargs[key]
           except KeyError as e:
@@ -224,7 +229,9 @@ class DataDomain(object):
       #TODO add should beable to pass optional keyword args to set the values
       # of these inherited attributes.  Right now this relies on child domain
       # updating these values before the parent does math on the array.
-      for accessor in self.registered_domains:
+      #TODO uhoh, safe_alloc will already resize these...
+      for accessor in self.array_attributes:
+        if isinstance(accessor,DataAccessor):
           accessor.resize(n)
 
       return self.DataAccessor(self,id)
@@ -253,7 +260,6 @@ class BroadcastingDataDomain(object):
 
       #property data
       self.broadcastable_attributes = []
-      self.registered_domains = []
       #TODO is this comment currently accurate?
       #__init__ of subclasses should do this:
       #self.DataAccessor = self.generate_accessor('GenericDataAccessor')
@@ -267,20 +273,18 @@ class BroadcastingDataDomain(object):
       in the ArrayAttributes that can accept date of size=count and free_index
       is the first index in the BroadcastableAttributes that can accept a 
       value '''
+      #print "data safe_alloc:",id
       try:
-          #print "alloc:",id,count
           array_start = self.allocator.alloc_array(id,count)
       except allocation.AllocatorMemoryException, e:
           capacity = _nearest_pow2(e.requested_capacity)
           #self._version += 1
-          for attribute in self.array_attributes:
+          #Why isn't this valid? for attribute in self.array_attributes if isinstance(attribute,ArrayAttribute):
+          for attribute in ( a for a in self.array_attributes if isinstance(a,ArrayAttribute)):
               attribute.resize(capacity)
           self.allocator.set_array_capacity(capacity)
           array_start = self.allocator.alloc_array(id,count)
-
-      reg_d = self.registered_domains
-      if reg_d:
-        for accessor in reg_d:
+      for accessor in ( a for a in self.array_attributes if isinstance(a,DataAccessor)):
           accessor.resize(count)
 
 
@@ -289,18 +293,25 @@ class BroadcastingDataDomain(object):
       except allocation.AllocatorMemoryException, e:
           capacity = _nearest_pow2(e.requested_capacity)
           #self._version += 1
-          for attribute in self.broadcastable_attributes:
+          for attribute in ( a for a in self.broadcastable_attributes if isinstance(a,ArrayAttribute)):
               attribute.resize(capacity)
           self.allocator.set_broadcastable_capacity(capacity)
           free_index = self.allocator.alloc_broadcastable(id)
+      for accessor in ( a for a in self.broadcastable_attributes if isinstance(a,DataAccessor)):
+          accessor.resize(1)
+
       return (array_start,free_index)
 
     def safe_dealloc(self,id):
         #print "Broad safe dealloc"
-        array_size = self.allocator.array_allocator.size_from_id(id)
+        allocator = self.allocator.array_allocator
+        array_size = allocator.size_from_id(id)
+        broadcast_size = 1
         self.allocator.dealloc(id)
-        for accessor in self.registered_domains:
+        for accessor in ( a for a in self.array_attributes if isinstance(a,DataAccessor)):
           accessor.resize(-array_size) 
+        for accessor in ( a for a in self.broadcastable_attributes if isinstance(a,DataAccessor)):
+          accessor.resize(-1) 
 
     def safe_realloc(self,id,count):
         '''reallocate space in arrays. If count is None, deallocate the space'''
@@ -321,7 +332,6 @@ class BroadcastingDataDomain(object):
         assert size == 0 #right now, must register while this domain is empty
         #^why would you register a new domain at any other point than __init__
         accessor = domain.add_empty(size) #an accessor to the *other* domain
-        self.registered_domains.append(accessor)
         return accessor
 
     def generate_accessor(self,name):
@@ -339,12 +349,13 @@ class BroadcastingDataDomain(object):
  
 
     def defragment_attributes(self):
-        #TODO don't put accessors in array_attributes!
         array_fixers, broadcastable_fixers = self.allocator.defrag()
         for attribute in self.array_attributes:
+          if isinstance(attribute,ArrayAttribute): #TODO not DataAccessor too?
             for source_sel, target_sel in zip(*array_fixers):
               attribute[target_sel] = attribute[source_sel]
         for attribute in self.broadcastable_attributes:
+          if isinstance(attribute,ArrayAttribute): #TODO not DataAccessor too?
             for source_sel, target_sel in zip(*broadcastable_fixers):
               attribute[target_sel] = attribute[source_sel]
         #TODO this below and the allocator function that enables it seem inefficient...
@@ -404,14 +415,14 @@ class BroadcastingDataDomain(object):
       #TODO is it a mistake to resize accessors here? maybe it should be up 
       #  to the caller to add to the registered domains
       n = None
-      #arrayed_attr_names = [attr.name for attr in self.array_attributes if isinstance(attr,ArrayAttribute)]
-      #arrayed_attr_names.remove('indices')
-      #arrayed_accessors = [attr for attr in self.array_attributes if isinstance(attr,DataAccessor)]
-      #broad_attr_names = [attr.name for attr in self.broadcastable_attributes if isinstance(attr,ArrayAttribute)]
-      #broad_accessors = [attr for attr in self.broadcastable_attributes if isinstance(attr,DataAccessor)]
-      arrayed_attr_names = [attr.name for attr in self.array_attributes]
+      arrayed_attr_names = [attr.name for attr in self.array_attributes if isinstance(attr,ArrayAttribute)]
       arrayed_attr_names.remove('indices')
-      broad_attr_names = [attr.name for attr in self.broadcastable_attributes ]
+      arrayed_accessors = [attr for attr in self.array_attributes if isinstance(attr,DataAccessor)]
+      broad_attr_names = [attr.name for attr in self.broadcastable_attributes if isinstance(attr,ArrayAttribute)]
+      broad_accessors = [attr for attr in self.broadcastable_attributes if isinstance(attr,DataAccessor)]
+      #arrayed_attr_names = [attr.name for attr in self.array_attributes]
+      #arrayed_attr_names.remove('indices')
+      #broad_attr_names = [attr.name for attr in self.broadcastable_attributes ]
      
       #broadcastable_names  = {attr.name for attr in self.broadcastable_attributes if isinstance(attr,ArrayAttribute}
       assert broad_attr_names, "DataDomains without one BroadcastableAttribute not yet supported"
