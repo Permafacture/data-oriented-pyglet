@@ -308,6 +308,7 @@ class BroadcastingDataDomain(object):
         #print "Broad safe realloc"
         #TODO I don't think count=None is necessary any more. just dealloc
         old_size = self.allocator.array_allocator.size_from_id(id)
+        assert (count and old_size-count >=0), "can't realloc to a negative size" 
         self.safe_dealloc(id)
         if count is not None:
           self.safe_alloc(id, old_size+count,1)

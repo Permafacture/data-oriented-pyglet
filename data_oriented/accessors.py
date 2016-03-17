@@ -34,11 +34,17 @@ class DataAccessor(object):
         self._domain.safe_realloc(self._id,None)
 
     def __del__(self):
-      try: 
-        self.close()
-      except Exception as e:
-        import traceback
-        print traceback.print_exc()
+      if __debug__:
+          try: 
+            self.close()
+          except Exception as e:
+            import traceback
+            print traceback.print_exc()
+      else:
+        try:
+          self.close()
+        except:
+          pass
 
     def __repr__(self):
       return "<Accessor #%s of %s>"%(self._id,self.domain)
