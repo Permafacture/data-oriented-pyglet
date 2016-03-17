@@ -40,7 +40,7 @@ class DataAccessor(object):
           self.close()
 
     def __repr__(self):
-      return "<Accessor #%s of %s>"%(self._id,self.domain)
+      return "<Accessor #%s of %s>"%(self._id,self._domain)
 
 def attribute_getter_factory(domain,attr,allocator):
       '''generate a getter using this object's index to the domain arrays
@@ -72,7 +72,7 @@ def data_accessor_factory(name,domain,attributes,allocators):
         setattr(NewAccessor,attr.name,property(getter(domain,attr,allocator), 
                                              setter(domain,attr,allocator)))
       except AttributeError:
-        #attribute doesn't have a name, so don't provide access to it
+        #attribute doesn't have a name, so it's an accessor
         pass
     return NewAccessor
 

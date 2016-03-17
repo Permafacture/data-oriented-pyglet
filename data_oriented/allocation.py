@@ -175,7 +175,7 @@ class ArrayAndBroadcastableAllocator(object):
         self.array_allocator = DefraggingAllocator(0)
         self.broadcast_allocator = DefraggingAllocator(0)
         self.array_selector = self.array_allocator.all_valid_selector
-        self.broadcast_allocator.all_valid_selector
+        self.broadcast_selector = self.broadcast_allocator.all_valid_selector
 
         self.dirty = self.array_allocator.dirty #Just for consistency
 

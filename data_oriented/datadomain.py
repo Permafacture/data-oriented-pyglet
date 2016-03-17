@@ -377,14 +377,12 @@ class BroadcastingDataDomain(object):
         buffer.  BroadcastableAttributes are broadcasted to be used with
         the ArrayAttributes here'''
 
-        array_selector = slice(0, self.allocator.array_selector(),1)
         if attr in self.array_attributes:
+          array_selector = slice(0, self.allocator.array_selector(),1)
           return attr[array_selector]
         elif attr in self.broadcastable_attributes:
-          #TODO: hiding broadcasting from user at the cost of making access
-          # to unbroadcasted arrays difficult is dumb.  fix this soon and
-          # add an as_broadcasted or something.
-          return attr[self.indices[array_selector]]
+          array_selector = slice(0, self.allocator.broadcast_selector(),1)
+          return attr[array_selector]
         else:
           raise ValueError(
                 "Cannot return non Attribute type %s as an array" % type(attr))

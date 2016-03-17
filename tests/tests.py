@@ -65,7 +65,8 @@ class DataDomainTestCase(TestCase):
         accessor3 = self.datadomain.add(100,(0,0))
         as_array = self.datadomain.as_array
         datadomain = self.datadomain
-        result = as_array(datadomain.arrayed1D) * as_array(datadomain.broadcastable1D)
+        indices = as_array(datadomain.indices)
+        result = as_array(datadomain.arrayed1D) * as_array(datadomain.broadcastable1D)[indices]
         desired = np.array([1,2,3,4,5,10,20,30,40,50,100,200,300,400,500],
                             dtype=np.float32)
         self.assertTrue(np.all(result==desired),"Broadcast math works")
