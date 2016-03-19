@@ -136,9 +136,8 @@ class RotateablePolygon(BroadcastingDataDomain):
         as_array = self.as_array
 
         initiald = as_array(self.data)
-        #TODO: would be more efficient to operate on the BroadcastableAttributes
-        # prior to broadcasting.  How to offer this flexibility without
-        # complicating the interface?  going with less efficient for now
+        indices = as_array(self.indices)
+
         angles = as_array(self.angle)
         positions = as_array(self.position)
 
@@ -150,23 +149,25 @@ class RotateablePolygon(BroadcastingDataDomain):
         pts = self.render_accessor.verts  #TODO: ech! every operation below is 
         #pts = self.render_accessor.verts[:] 
         #  using the setter of the accessor! maybe verts[:]?
-        pts[:,0] = xhelpers*cos_ts
-        pts[:,1] = yhelpers*sin_ts
+        pts[:,0] = xhelpers*cos_ts[indices]
+        pts[:,1] = yhelpers*sin_ts[indices]
         pts[:,0] -= pts[:,1]                 
         pts[:,0] *= rs                
         pts[:,0] += xs                
-        pts[:,0] += positions[:,0]
+        pts[:,0] += positions[indices,0]
 
-        pts[:,1] = yhelpers*cos_ts
-        tmp = xhelpers*sin_ts
+        pts[:,1] = yhelpers*cos_ts[indices]
+        tmp = xhelpers*sin_ts[indices]
         pts[:,1] += tmp
         pts[:,1] *= rs
         pts[:,1] += ys
-        pts[:,1] += positions[:,1]
+        pts[:,1] += positions[indices,1]
 
     def update_colors(self):
-        local_colors = self.as_array(self.color)
-        self.render_accessor.colors[:] = local_colors 
+        as_array = self.as_array
+        indices = as_array(self.indices)
+        local_colors = as_array(self.color)
+        self.render_accessor.colors[:] = local_colors[indices] 
 
     def update(self):
         self.update_vertices()
@@ -214,7 +215,7 @@ if __name__ == '__main__':
     render_domain = RenderableColoredTraingleStrips()
     polygon_domain1 = RotateablePolygon(render_domain)
 
-    n=15
+    n=100
     ents = [random_poly(width,height,polygon_domain1) for _ in range(n)]
 
     rates = list(np.random.random(n)*.01)
@@ -241,7 +242,7 @@ if __name__ == '__main__':
       global ents, rates
       ent = ents.pop(5)
       rates.pop(5)
-      del ent
+      del ent  #alternatively, ent.close()
     
     pyglet.clock.schedule(lambda _: None)
     pyglet.clock.schedule_interval(delete, 1) 

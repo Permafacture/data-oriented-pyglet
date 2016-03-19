@@ -6,7 +6,7 @@ from data_oriented import DataDomain, BroadcastingDataDomain, ArrayAttribute
 class DataDomainTestCase(TestCase):
 
 
-   def setUp(self):
+    def setUp(self):
 
         class TestDataDomain(BroadcastingDataDomain):
             '''a DataDomain with one 1D Array, one 2D Array, and one Broadcastable 
@@ -37,8 +37,25 @@ class DataDomainTestCase(TestCase):
 
         self.datadomain = TestDataDomain()
  
+    def test_add_single_item_to_datadomain(self):
+        '''If this test fails, a bug is fixed and some safeguards can be lifted'''
+        '''FIXME: Attributes start as np.dtype rather than np.array
+        in some add()'s I have:
+        
+          counter =  counter_accessor  
+          try:
+            counter.min_value[index] = anim_start
+          except TypeError:
+            #So, adding the first one, interval is a np.float.  Every time after
+            #it is an array as expected. Probably caused by having a zero sized array
+            counter.min_value = anim_start
+
+        and this can go away now '''
+        accessor = self.datadomain.add(1,(0,0))
+        with self.assertRaises(TypeError):
+            accessor.broadcastable1D[0] = 5 
     
-   def test_add_data_to_domain(self):
+    def test_add_data_to_domain(self):
         '''Data can be added to domains and accessed through accessors'''
         accessor1 = self.datadomain.add(1,(0,0))
         accessor2 = self.datadomain.add(2,(3,4))
@@ -58,7 +75,7 @@ class DataDomainTestCase(TestCase):
         self.assertTrue(np.all(accessor2.broadcastable2D == np.array([3,4],dtype=np.int32)),
                          "data accessor access wrong broadcastable2D")
 
-   def test_1D_to_1D_broadcast(self):
+    def test_1D_to_1D_broadcast(self):
         '''1D BroadcastableAttribute correctly broadcasts to 1D ArrayAttribute'''
         accessor1 = self.datadomain.add(1,(0,0))
         accessor2 = self.datadomain.add(10,(0,0))
@@ -75,7 +92,8 @@ class DataDomainTestCase(TestCase):
 #  ie: ABCDEF after dealloc B and E
 
 def suite():
-    tests = ['test_add_data_to_domain',
+    tests = ['test_add_single_item_to_datadomain',
+             'test_add_data_to_domain',
              'test_1D_to_1D_broadcast']
     return TestSuite(map(DataDomainTestCase, tests))
 

@@ -126,7 +126,7 @@ class DataDomain(object):
       for accessor in ( a for a in self.array_attributes if isinstance(a,DataAccessor)):
           accessor.resize(count)
 
-      return array_start
+      return array_start, count
 
 
     def safe_dealloc(self,id):

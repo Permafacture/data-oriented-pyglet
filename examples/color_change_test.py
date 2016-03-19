@@ -31,7 +31,7 @@ from pyglet import gl
 from collections import namedtuple
 
 from data_oriented import ArrayAttribute
-from data_oriented.polygon_datadomains import RotateablePolygon, RenderableColoredTraingleStrips, RepeatingTimer, WrappingTimer
+from data_oriented.polygon_datadomains import RotateablePolygon, RenderableColoredTraingleStrips, LinearTimer, WrappingTimer
 
 
 
@@ -80,13 +80,13 @@ class ColorChangingRotateablePolygon(RotateablePolygon):
         #TODO. weird, writes into as_array(self.angle)[:] don't work (nothing happens)
         # AH! it's because as array gives a temporary array that has been 
         # broadcast with indices. That might get confusing!
-        as_array(self.angle)[:] = self.rotation_accessor.counter
+        as_array(self.angle)[:] = self.rotation_accessor.accumulator
         super(ColorChangingRotateablePolygon,self).update_vertices()
 
     def update_colors(self):
         as_array = self.as_array
         colors = self.render_accessor.colors
-        intensities = self.timer_accessor.counter
+        intensities = self.timer_accessor.accumulator
         #TODO, again it would be more efficient to work with the raw
         # BroadcastableAttributes first before broadcasting.
         local_colors = as_array(self.color) * intensities[:,None]
@@ -118,7 +118,7 @@ if __name__ == '__main__':
     label = pyglet.text.HTMLLabel(text, x=10, y=height-10)
 
     render_domain = RenderableColoredTraingleStrips()
-    timer_domain = RepeatingTimer() 
+    timer_domain = LinearTimer() 
     rotation_domain = WrappingTimer()
 
     #polygon_domain1 = RotateablePolygon(render_domain)
@@ -155,8 +155,8 @@ if __name__ == '__main__':
           #ent.inc_intensity()
 
         #polygon_domain1.update()
-        timer_domain.update_counter()
-        rotation_domain.update_counter()
+        timer_domain.update_accumulator()
+        rotation_domain.update_accumulator()
         polygon_domain2.update()
         render_domain.draw()
         fps_display.draw()

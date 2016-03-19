@@ -65,82 +65,97 @@ class RenderableColoredTraingleStrips(DataDomain):
         gl.glColorPointer(3,  self.color_dtype.gl, 0, self.colors._buffer.ctypes.data)
         gl.glDrawArrays(gl.GL_TRIANGLE_STRIP, 0, n)
 
-class RepeatingTimer(DataDomain):
-    '''set an interval in ticks and the counter sets a flag when it has
-    counted down.  timer is reset'''
+class LinearTimer(DataDomain):
+    '''count by an interval in ticks. When min or max value is reached, sets a
+    flag.  If `repeating=True`, timer is reset and repeats'''
+    #TODO should take a datatype argument
+    def __init__(self,repeating=True,dtype=np.float32):
+        super(LinearTimer,self).__init__()
 
-    def __init__(self):
-        super(RepeatingTimer,self).__init__()
+        self.repeating = repeating
 
         #arrayed data
-        self.max_value  = ArrayAttribute('max_value',1,np.float32) 
-        self.interval   = ArrayAttribute('interval',1,np.float32)
-        self.counter    = ArrayAttribute('counter',1,np.float32)
+        self.max_value  = ArrayAttribute('max_value',1,dtype) 
+        self.min_value  = ArrayAttribute('min_value',1,dtype) 
+        self.interval   = ArrayAttribute('interval',1,dtype)
+        self.accumulator= ArrayAttribute('accumulator',1,dtype)
         self.ready_flag = ArrayAttribute('ready_flag',1,np.bool)
-        self.array_attributes.extend([self.max_value,self.interval,self.counter,self.ready_flag])
+        self.array_attributes.extend([self.max_value, self.min_value, 
+            self.interval, self.accumulator, self.ready_flag])
 
-        self.DataAccessor = self.generate_accessor('RepeatingTimerAccessor')
+        self.DataAccessor = self.generate_accessor('LinearTimerAccessor')
 
-    def add(self,interval,max_value):
-        kwargs.update({'max_value':max_value,
-                       'interval':interval,
-                       'counter':max_value,
-                       'ready_flag':False,
+    def add(self,interval,max_value,min_value=0):
+        kwargs.update({'max_value'  :max_value,
+                       'min_value'  :min_value,
+                       'interval'   :interval,
+                       'accumulator':max_value,
+                       'ready_flag' :False,
                        })
-        accessor = super(RotateablePolygon,self).add(**kwargs) 
+        accessor = super(LinearTimer,self).add(**kwargs) 
         return accessor
     
 
-    def update_counter(self):
-        counter = self.as_array(self.counter)
+    def update_accumulator(self):
+        accumulator = self.as_array(self.accumulator)
         interval = self.as_array(self.interval)
         ready = self.as_array(self.ready_flag)
         max_value = self.as_array(self.max_value)
+        min_value = self.as_array(self.min_value)
 
-        counter -= interval
-        expired = counter <= 0
-        counter[expired] = max_value[expired]
-        ready[expired] = True
+        accumulator += interval
+
+        underflow = accumulator < min_value #must not be <= 
+        ready[underflow] = True
+        if self.repeating:
+          accumulator[underflow] =  max_value[underflow]
+
+        overflow = accumulator > max_value  #must be >, not >=
+        ready[overflow] = True
+        if self.repeating:
+          accumulator[overflow] =  min_value[overflow]
+
 
 class WrappingTimer(DataDomain):
-    '''set an interval to apply once per tick and the counter wraps 
+    '''set an interval to apply once per tick and the accumulator wraps 
     back around.'''
+    #TODO should take a datatype argument
 
-    def __init__(self):
+    def __init__(self, dtype=np.float32):
         super(WrappingTimer,self).__init__()
 
         #arrayed data
-        self.max_value  = ArrayAttribute('max_value',1,np.float32) 
-        self.min_value  = ArrayAttribute('min_value',1,np.float32) 
-        self.interval   = ArrayAttribute('interval',1,np.float32)
-        self.counter    = ArrayAttribute('counter',1,np.float32)
+        self.max_value  = ArrayAttribute('max_value',1,dtype) 
+        self.min_value  = ArrayAttribute('min_value',1,dtype) 
+        self.interval   = ArrayAttribute('interval',1,dtype)
+        self.accumulator    = ArrayAttribute('accumulator',1,dtype)
         self.array_attributes.extend([self.max_value,self.min_value,
-            self.interval,self.counter])
+            self.interval,self.accumulator])
 
         self.DataAccessor = self.generate_accessor('WrappingTimerAccessor')
 
-    def add(self,interval,min_value,max_value):
+    def add(self,interval,min_value,max_value,**kwargs):
         kwargs.update({'min_value':min_value,
                        'max_value':max_value,
                        'interval':interval,
-                       'counter':max_value,
+                       'accumulator':max_value,
                        })
-        accessor = super(RotateablePolygon,self).add(**kwargs) 
+        accessor = super(WrappingTimer,self).add(**kwargs) 
         return accessor
     
 
-    def update_counter(self):
+    def update_accumulator(self):
         as_array  = self.as_array
-        counter   = as_array(self.counter)
+        accumulator   = as_array(self.accumulator)
         interval  = as_array(self.interval)
         max_value = as_array(self.max_value)
         min_value = as_array(self.min_value)
         span = max_value - min_value
-        counter -= interval
-        underflow = counter <= min_value
-        counter[underflow] += span[underflow]
-        overflow = counter >= max_value
-        counter[overflow] -= span[overflow]
+        accumulator += interval
+        underflow = accumulator <= min_value
+        accumulator[underflow] += span[underflow]
+        overflow = accumulator >= max_value
+        accumulator[overflow] -= span[overflow]
         
 class Polygon(DataDomain):
     '''I'm thinking it would be nice to have a class to tie together the 
