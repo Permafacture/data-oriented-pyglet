@@ -71,11 +71,17 @@ class TableRow(Sequence):
     def __len__(self):
         return len(self.values)
 
+    def __iter__(self):
+        return iter(self.values)
+
+    def copy(self):
+        return TableRow(*self.values)
+
     def __getitem__(self,index):
         return self.values[index]
 
 def slice_is_not_empty(s):
-    print "  ",s.start,s.stop-s.start
+    #print "  ",s.start,s.stop-s.start
     return s.start != s.stop
 
 class Table(object):
@@ -296,7 +302,7 @@ class Table(object):
 
     def compress(self,):
         #don't insert into, just replace
-        print "COMPRESS"
+        #print "COMPRESS"
         sizes = self.sizes
         class_ids = self.class_ids
         guids = self.guids
@@ -314,17 +320,15 @@ class Table(object):
         total_alloc = empty_row()
         #TODO could this be reduce?
         ends = TableRow(sum(column) for column in zip(*sizes)) or empty_row() 
-        #determine start and top of each class section TODO really?
-        #section_start = 0
-        #section_end = 0
-        #ptr = 0
+        new_ends = ends.copy()
+
         #TODO section_slices should return [(class_id, section_slice),...]
         section_dict = self.section_slices()
         for class_id in self.known_class_ids:
             #empty slice will have no effect. essentially, skip this loop that
             # iterates over the slice.
             allocs  = empty_row()        
-            #deallocs  = empty_row()        
+            deallocs  = empty_row()        
             section_slice = section_dict.get(class_id,slice(0,0,1))
             #print "doing class id:",class_id, section_slice
             for guid, size_tuple in zip(guids[section_slice], sizes[section_slice]):
@@ -333,8 +337,7 @@ class Table(object):
                        "next start must be larger than current free start"
                 if guid is None:
                     current_start += size_tuple
-                    allocs -= size_tuple
-                    print "dealloc: ",size_tuple, allocs
+                    deallocs += size_tuple
                 else:
                     #shift data back to cover deletes
                     #print "  counting %s of %s"%(guid,class_id)
@@ -349,8 +352,7 @@ class Table(object):
                                       size in zip(free_start,size_tuple)))
                         #print "  small alloc for guid",guid,"to",targets[-1]
                     free_start += size_tuple
-                    current_start += size_tuple  
-
+                    current_start += size_tuple
             #deal with adds
             for added_guid, size_tuple in self._staged_adds.get(class_id,()):
                 size = TableRow(size_tuple)
@@ -361,25 +363,26 @@ class Table(object):
                 new_sizes.append(size)
             #free_start = current_start + allocs #TODO part of last debugging
             free_start += allocs
+            new_ends += allocs
+            new_ends -= deallocs
             #after inserting adds, write the big change to sources and targets
             #Note: empty slices are added here, and are filtered out when we 
             # columnize the row data
-            new_ends = ends + allocs
             if current_start != free_start:
                 source = tuple(slice(start,end,1) for start,end in zip(
                               current_start,ends)) 
                 target = tuple(slice(start,end,1) for start,end in zip(
                               free_start,new_ends))
-                print "adding:\n",source,target
+                #print "adding:\n",source,target
                 sources.append(source)
                 targets.append(target)
                 #print "big alloc for class",class_id
                 #for s,t in zip(source,target): print s,"-->",t
-            print "starts:\n  %s| %s\n  %s| %s\n" % (current_start, ends, free_start,new_ends)
-            current_start = free_start #TODO part of last debugging
-            #current_start += allocs
+            #print "starts:\n  %s| %s\n  %s| %s\n" % (current_start, ends, free_start,new_ends)
+            #print "starts: %s | %s" % (current_start - free_start, ends - new_ends)
+            current_start = free_start.copy() #TODO part of last debugging
+            ends = new_ends.copy()
             total_alloc += allocs
-            ends = new_ends
             this_class_id = class_id
 
         self.class_ids = new_class_ids
@@ -393,9 +396,9 @@ class Table(object):
         ret = []
         for this_alloc, col_sources, col_targets in zip(
                 total_alloc, zip(*sources), zip(*targets)):
-            print "sources:"
+            #print "sources:"
             col_sources = tuple((s for s in col_sources if slice_is_not_empty(s)))
-            print "targets:"
+            #print "targets:"
             col_targets = tuple((t for t in col_targets if slice_is_not_empty(t)))
             #Assert that the above did what we expect
             if __debug__ == True:

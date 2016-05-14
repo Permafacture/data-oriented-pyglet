@@ -168,17 +168,21 @@ def add_some(n,n2=None,allocator=allocator):
     '''add n random polygons to allocator
 
     There's two types of polygons. if only n is given, will distribute randomly.
-    if n2 is given, distibute n to one type and n2 to the other'''
+    if n2 is given, distibute n to one type and n2 to the other
+    '''
 
+    print "n1 and n2:",str(n),str(n2)
     assert isinstance(n,int) and (1 if n2 is None else isinstance(n2,int)),\
         "n1 and n2 (if given) must be integers"
 
     if n2 is None:
-      a = np.random(1)
-      n1 = int(n/a)
+      a = random.random()
+      n1 = int(n*a)
       n2 = n-n1
     else:
-      n1=n
+      n1 = n
+      n2 = 0
+    print "  n1 and n2:",str(n1),str(n2)
 
     positions = [(x*width,y*height,z) for x,y,z in np.random.random((n1,3))]
     rs = [r*50 for r in np.random.random(n1)] 
@@ -251,7 +255,8 @@ if __name__ == '__main__':
         fps_display.draw()
 
     pyglet.clock.schedule(lambda _: None)
-
+    pyglet.clock.schedule_interval(lambda x,*y: add_some(*y),1,20)
+    pyglet.clock.schedule_interval(lambda x: allocator._defrag(),1)
     pyglet.app.run()
 
 
