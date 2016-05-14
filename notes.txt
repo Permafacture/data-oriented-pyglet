@@ -1,0 +1,62 @@
+
+##Buffer
+
+domain_map = self.group_map[group]
+
+key = (formats, mode, indexed)
+try:
+    domain = domain_map[key]
+except KeyError:
+    # Create domain
+
+A domain only knows its formats (and wether it is indexed or not by virtue of which type it is an instance of)
+modes are kept seperate through the key
+
+Formats are like `v3f/stream` that get parsed into attributes within the domain
+
+##Domain
+
+instantiated with list of tuples (AbstractAttribute, usage(static/dynamic/etc), and vob(True/False)
+
+Domains have an alloc and dealloc through their allocator
+
+Each attribute is assigned a buffer, which is a vertexbuffer.MappableVertexBufferObject if 
+  possible (easily possible) and desired, or a vertexbuffer.VertexArray.
+
+(MappableVertexBufferObject has a system-memory backed store, while VertexArray does not.)
+
+These seperate attribute buffers are sized to all contain the same number of elements:
+  size of ctype * number of dimensions in vector * allocator.capacity
+
+Domain stores these as domain.buffer_attributes = [(this_buffer, attribute)], and also in the dict:
+  attribute.names, keyed by the attribute name string 
+
+
+## VertexList
+A vertex list gets its colors, vertices, etc through setters and getters by getting that 
+attribute's buffer from it's domain and using attribute.get_region with it's own start and count.
+
+get_region gets data like:
+
+    '''
+    notes from __init__
+    self.count = count #assert count in (1, 2, 3, 4), 'Component count out of range'
+    self.align = ctypes.sizeof(self.c_type)
+    self.size = count * self.align
+    self.stride = self.size #probably different for interleaved...
+    self.offset = 0
+    '''
+
+
+    byte_start = self.stride * start
+    byte_size = self.stride * count
+    array_count = self.count * count # num of elements per vector * number of vectors requested == num of ctypes to get
+    if self.stride == self.size or not array_count:
+        # non-interleaved
+        ptr_type = ctypes.POINTER(self.c_type * array_count)
+        return buffer.get_region(byte_start, byte_size, ptr_type)
+    else:
+        # interleaved
+        # Elliot: more complicated. Comments in VertexDomain __init__ lead me to assume this is only for static attributes. 
+
+

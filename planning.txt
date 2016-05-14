@@ -1,0 +1,43 @@
+Renderable():
+  inputs:
+    vertices
+    colors
+  outputs:
+    IO 
+
+Transformable():
+  inputs:
+    position
+    angle
+  outputs:
+    vertices
+
+Colored():
+  inputs:
+    color
+  outputs:
+    colors
+
+(Transformable, Colored) -> Renderable
+
+Car(Transformable, Colored):
+  inputs:
+    models
+  outputs:
+    vertices
+    colors
+
+^ That's too complicated.  Let's make it more atomic.
+
+Renderable(vertices, colors):
+  outputs:
+    IO 
+
+SolidColored_Rotateable_RegularPolygon(n,r,color,pos,angle):
+  n,r and color are immutable
+  pos and angle are mutable
+  xhelper and yhelper are internal state
+
+  outputs:
+    vertices
+    colors

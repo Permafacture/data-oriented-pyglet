@@ -1,6 +1,22 @@
 '''
 Class that wraps a numpy array as a buffer, and provides for resizing,
 inserting, appending, and defragging.
+
+This file is part of Numpy-ECS.
+Copyright (C) 2016 Elliot Hallmark (permafacture@gmail.com)
+
+Numpy-ECS is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 2 of the License, or
+(at your option) any later version.
+
+Data Oriented Python is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
 import numpy as np
 
@@ -23,12 +39,9 @@ class DefraggingArrayComponent(object):
       #TODO: might could alternatively instatiate with an existing numpy array?
       self.name = name
       self.datatype=dtype #calling this dtype would be confusing because this is not a numpy array!
-      if dim == (1,):
-        dim = ()
       self._dim = dim
       self.capacity = size
-
-      if dim == 1:
+      if dim == (1,):
         self._buffer = np.empty(size,dtype=dtype) #shape = (size,) not (size,1)
         self.resize = self._resize_singledim
       elif dim > 1:
@@ -40,7 +53,9 @@ class DefraggingArrayComponent(object):
     def resize(self,count):
         '''resize this component to new size = count'''
         #This is a placeholder, __init__ decides what to overwrite this with
-
+        # ^ not true any more
+        self._buffer.resize((count,)+self._dim)
+        
 
     def alloc(self,size):
         '''make certain Component can accept `size` new values
@@ -54,18 +69,18 @@ class DefraggingArrayComponent(object):
     def realloc(self,old_selector,new_selector):
         self._buffer[new_selector] = self._buffer[old_selector]
 
-    def push_from_index(self,index,size):
-        '''push all data in buffer from start onward forward by size.
-        if size is negative, moves everything backwards.  Assumes alloc
-        was already called, assuring that there is size empty values at
-        end of buffer.'''
-        end = self.capacity
-        if size == 0:
-            return
-        elif size > 0:
-            self._buffer[index+size:] = self._buffer[index:-size]
-        elif size < 0:
-            self._buffer[index+size:size] = self._buffer[index:]
+    #def push_from_index(self,index,size):
+    #    '''push all data in buffer from start onward forward by size.
+    #    if size is negative, moves everything backwards.  Assumes alloc
+    #    was already called, assuring that there is size empty values at
+    #    end of buffer.'''
+    #    end = self.capacity
+    #    if size == 0:
+    #        return
+    #    elif size > 0:
+    #        self._buffer[index+size:] = self._buffer[index:-size]
+    #    elif size < 0:
+    #        self._buffer[index+size:size] = self._buffer[index:]
  
 
     def __getitem__(self,selector):

@@ -24,7 +24,7 @@ counter_type = np.type(('max_val',np.int32), ...
 allocator = GlobalAllocator((Component('vertices',   (3,),vert_dtype.np),
                              Component('tex_coords', (3,),tex_dtype.np),
                              Component('poly_coords',(2,),vert_dtype.np),
-                             Component('animated',    1  ,vert_dtype.np),
+                             Component('animated',   (1,),vert_dtype.np),
                              Component('position',   (2,),vert_dtype.np),
                              Component('velocity',   (2,),vert_dtype.np)),
                              allocation_scheme = (
@@ -69,7 +69,7 @@ def inc_animation_counter(**kwargs):
 def update_position(**kwargs):
     kwargs['position'] += kwargs['velocity']
 
-@System('vertices','poly_coords','position',index = index('position','poly_coords'))
+@System('vertices','poly_coords','position',index = Broadcaster('position','poly_coords'))
 def translate_to_render(vertices, poly_coords,position,index): #can this be done without **kwargs?
     vertices[:] = poly_coords  #reuse array rather than create temp
     vertices += position[index] 
