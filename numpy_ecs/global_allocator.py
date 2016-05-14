@@ -168,6 +168,7 @@ class GlobalAllocator(object):
         assert result['guid'] not in {d['guid'] for d in self._cached_adds}, \
             "cannot add a guid twice"
         self._cached_adds.append(result)
+        return result['guid']
 
     def delete(self,guid):
         alloc_table = self._allocation_table

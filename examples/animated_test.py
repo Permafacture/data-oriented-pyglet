@@ -25,8 +25,8 @@ from pyglet import gl
 from collections import namedtuple
 from operator import add
 
-from global_allocator import GlobalAllocator
-from components import DefraggingArrayComponent as Component
+from numpy_ecs.global_allocator import GlobalAllocator
+from numpy_ecs.components import DefraggingArrayComponent as Component
 
 window_width, window_height = 640,480
 

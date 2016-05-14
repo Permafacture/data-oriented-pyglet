@@ -1,13 +1,13 @@
 from setuptools import setup
 
 setup(
-    name = "data_oriented",
+    name = "Numpy-ECS",
     version = "0.01",
     author = "Elliot Hallmark",
     author_email = "permafacture@gmail.com",
-    description = ("Batch math heavy object methods into numpy arrays "),
+    description = ("An Entity Component System framework built on numpy arrays"),
     license = "GPLv2",
-    keywords = "data oriented programming",
+    keywords = "data oriented programming, ECS",
     url = "https://github.com/Permafacture/data-oriented-pyglet",
-    packages=['data_oriented',],
+    packages=['numpy_ecs',],
 )

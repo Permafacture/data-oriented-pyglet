@@ -1,7 +1,7 @@
-Data Oriented Python
+Numpy-ECS
 ====================
 
-Tests towards using data oriented programming with pyglet and numpy.
+data oriented programming with numpy through an Entity-Component-System model.
 
 This project was inspired by lack luster performance of rotating a bunch of
 polygons in tests towards a game engine.  The concept was inspired by:
@@ -10,14 +10,90 @@ polygons in tests towards a game engine.  The concept was inspired by:
 Further information on Data Oriented Design:
   http://www.dataorienteddesign.com/dodmain/dodmain.html 
 
+Details
+=======
+
+The Allocator is the user's interface with Components, Entities and Systems.
+
+Components are Numpy arrays of the attributes that will make up Entities. 
+They have a shape and a datatype and once given to the Allocator, they are 
+abstracted away. ie, an RGB color Component might be:
+
+    colors = Component('color', (3,), np.float32)
+
+Entities are "instances" defined through composition of Components.
+Each instance is actually just an integer (guid) that the Allocator can
+use to look up the instance's slice of the Components.  Thus Entities are 
+constructed by adding values to some subset of Components to the Allocator.
+ie, instead of having a class with an `__init__` functions, instances are 
+created by calling allocator.add with some component values defined:
+
+    def add_regular_polygon(n_sides,radius,pos,
+                              color=(.5,.5,.5),allocator=allocator):
+        pts = polyOfN(n_sides,radius)
+        poly_verts = wind_vertices(pts)
+        polygon = {
+          'render_verts': [(x+pos[0],y+pos[1],pos[2]) for x,y in poly_verts],
+          'color'       : [color]*len(poly_verts),
+          'position'    : pos,
+          }
+        guid = allocator.add(polygon)
+        return guid
+
+The allocator groups all the entity instances that are composed of the same 
+Components into "entity classes" so their attributes can be accessed as 
+continuous slices.
+
+Systems are functions that operate on the Components entity classes.  
+These can be implemented through Numpy ufuncs, cython, or 
+numba.vectorize.  Thus, Systems are fast and can run on multiple cores without
+the need for multiprocessing.  As an example, a System to render everything 
+that has verts and colors:
+
+    def update_display(render_verts,colors):
+        gl.glClearColor(0.2, 0.4, 0.5, 1.0)
+        gl.glBlendFunc (gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)                             
+        gl.glEnable (gl.GL_BLEND)                                                            
+        gl.glEnable (gl.GL_LINE_SMOOTH);                                                     
+        gl.glEnableClientState(gl.GL_VERTEX_ARRAY)
+        gl.glEnableClientState(gl.GL_COLOR_ARRAY)
+
+        n = len(render_verts[:])
+        #TODO verts._buffer.ctypes.data is awkward
+        gl.glVertexPointer(3, vert_dtype.gl, 0, render_verts[:].ctypes.data)
+        gl.glColorPointer(3,  color_dtype.gl, 0, colors[:].ctypes.data)
+        gl.glDrawArrays(gl.GL_TRIANGLE_STRIP, 0, n)
+
+And without any convinience functions, this can be called with the appropriate 
+sections of the `render_verts` and `color` numpy arrays by doing:
+
+    get_sections = allocator.selectors_from_component_query
+    draw =('render_verts','color')
+    sections = get_sections(draw)
+    update_display(*(sections[name] for name in draw))
+
+Performance
+===========
+
+The difference between examples/first.py and examples/polygons.py increases
+with number of polygons drawn.  On my Celeron 2 CPU laptop I gewt 250 vs 500 
+FPS with 150 polygons and 30 vs 150 FPS with 1000 polygons.
+
+In a more complete game example with pymunk running 2D physics, the original
+version ran at 50 FPS and the Numpy-ECS version at 150 FPS.  Having pyglet 
+treat positions and angles as write-only arrays, and rendering treat them as 
+read-only, the components were created in shared memory and multiprocessing was
+used to run the physics and rendering as seperate processes using the shared 
+memory for inter process communication (IPC).  The result was 180 FPS for the 
+physics and 600 FPS for the rendering.
+
+History
+=======
+
 The examples directory shows the evolution of this concept:
 
-first.py shows my best attempt at using pure python, OOP, and pyglet batches.
-On my very modest laptop, it gets ~250 frames per second, with rotation
-of the polygons consuming 90% of the run time.
-
-second.py was an attempt to use numpy to make the rotation implementation
-faster.  In actuality, it performs worse...
+first.py shows my best attempt at using pure python, OOP, and pyglet batches. 
+Rotation of the polygons consumes 90% of the run time.
 
 compare.py shows that using numpy on an array has some overhead, but that
 the size of the array has much less of an effect on execution time than
@@ -25,55 +101,11 @@ with python lists.  There is a break even point in the length of data to
 be processed. Below this, list comprehensions are faster. Above this,
 numpy quickly surpasses pure Python.
 
-third.py shows that by batching all of the rotation math into one array,
+second.py shows that by batching all of the rotation math into one array,
 there are substantial performance benefits.  But it becomes cumbersome 
 to interact with instances of the polygons once they are all thrown 
 together.
 
-data-oriented.py uses the data oriented ORM (what's a better name than 
-ORM here?) that this project aims to elaborate to maintain the batched
-performance of large contiguous sections of memory operated on at C
-speeds, while also giving an object oriented interface for creating
-and interacting with instances, perhaps even composing data domians
-into Entities (ie: an entity-component system)
+polygons.py implements this same example through the ECS.  The overhead
+from the higher level interface is negligable. 
 
-Performance
-===========
-
-first.py was my best attempt at an optimized algorithm in pure python.
-It runs at 250 fps on my machine.  With Pypy, after JIT warmup, it runs
-at 500 fps.  data-oriented.py runs at ~650 fps, and there is room for
-further improvement using Cython or Numba's `vectorize` decorator.
-
-Some thoughts and questions:
-
-  * What is a better name for this project?
-  * what is a better name for "arrayed" and "broadcastable" properties?
-  * Should it be as easy for users to access arrayed properties through
-      the data accessor as single properties?  Are arrayed properties just
-      data domain implementation details while the data accessor mostly
-      communicates single valued properties? 
-  * Seems like composing Data Domains into complex Data Accessors would
-      be important for an entity-component like system.  How to do this?
-  * Composition should be favored over inheritance: decorate classes to 
-      make them Entities spanning multiple data domains rather than 
-      having a family tree of data domains.
-
-Some TODOs:
-
-  * Use a heirarchical structure of domains, where each sub domain registers
-      itself with the parent domain and provides the expected interface
-      so the parent domain can iterate through its registered sub domains
-      and update it's data.
-  * It would be nice to be able to cache state within a domain so that if
-      parts of the sub domain don't update, parts of the domain don't need to
-      update either (except it may have to move data around in it's buffers 
-      to consolidate the cache if parts of the sub_domain are deleted or 
-      resized.
-  * Selectors will be important (layered slices and masks). 
-      Provide clean functionality for them.
-  * I don't like that DataDomain.add requires that Attributes have name 
-      attributes that must equal the attributes they are assigned to.
-      ie: self.thisattr = ArrayAttribute('thisattr',...). Be DRY!
-  * Have DataDomain init call a finalize function that helps with DRYness
-      and conciseness.

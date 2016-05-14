@@ -1,5 +1,5 @@
 '''
-Numpy-ECS example of rotating and rendering polygons
+Numpy-ECS example of adding and deleting entitiess
 
 Hard coded example of the following Entity_class_id table:
  
@@ -27,13 +27,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import numpy as np
 from numpy import sin, cos, pi, sqrt
 from math import atan2
+import random
 import pyglet
 from pyglet import gl
 from collections import namedtuple
 from operator import add
 
-from global_allocator import GlobalAllocator
-from components import DefraggingArrayComponent as Component
+from numpy_ecs.global_allocator import GlobalAllocator
+from numpy_ecs.components import DefraggingArrayComponent as Component
 
 dtype_tuple  = namedtuple('Dtype',('np','gl'))
 vert_dtype   = dtype_tuple(np.float32,gl.GL_FLOAT)
@@ -162,18 +163,24 @@ def update_display(render_verts,colors):
     gl.glColorPointer(3,  color_dtype.gl, 0, colors[:].ctypes.data)
     gl.glDrawArrays(gl.GL_TRIANGLE_STRIP, 0, n)
 
-if __name__ == '__main__':
 
-    width, height = 640,480
-    window = pyglet.window.Window(width, height,vsync=False)
-    #window = pyglet.window.Window(fullscreen=True,vsync=False)
-    #width = window.width
-    #height = window.height 
-    fps_display = pyglet.clock.ClockDisplay()
-    text = """Numpy ECS"""
-    label = pyglet.text.HTMLLabel(text, x=10, y=height-10)
-    
-    n1=1000
+def add_some(n,n2=None,allocator=allocator):
+    '''add n random polygons to allocator
+
+    There's two types of polygons. if only n is given, will distribute randomly.
+    if n2 is given, distibute n to one type and n2 to the other
+    '''
+
+    assert isinstance(n,int) and (1 if n2 is None else isinstance(n2,int)),\
+        "n1 and n2 (if given) must be integers"
+
+    if n2 is None:
+      a = random.random()
+      n1 = int(n*a)
+      n2 = n-n1
+    else:
+      n1 = n
+      n2 = 0
 
     positions = [(x*width,y*height,z) for x,y,z in np.random.random((n1,3))]
     rs = [r*50 for r in np.random.random(n1)] 
@@ -186,8 +193,6 @@ if __name__ == '__main__':
     #from before indicies could be calculated
     #indices = np.array(reduce(add, [[x,]*7 for x in range(n1)], []),dtype=np.int)
 
-    n2=50
-
     positions = [(x*width,y*height,z) for x,y,z in np.random.random((n2,3))]
     rs = [r*50 for r in np.random.random(n2)] 
     ns = [int(m*10)+3 for m in np.random.random(n2)] 
@@ -196,6 +201,28 @@ if __name__ == '__main__':
     for n_sides,radius, position, color in zip(ns,rs, positions, colors):
       add_regular_polygon(n_sides,radius,position,color)
 
+
+
+def delete_some(n,allocator=allocator):
+    guids = random.sample(allocator.guids,n)
+    for guid in guids:
+        allocator.delete(guid)
+
+
+
+if __name__ == '__main__':
+
+    width, height = 640,480
+    window = pyglet.window.Window(width, height,vsync=False)
+    #window = pyglet.window.Window(fullscreen=True,vsync=False)
+    #width = window.width
+    #height = window.height 
+    fps_display = pyglet.clock.ClockDisplay()
+    text = """Numpy ECS"""
+    label = pyglet.text.HTMLLabel(text, x=10, y=height-10)
+   
+    #add some polygons 
+    add_some(100,50)
     allocator._defrag()
 
     get_sections = allocator.selectors_from_component_query
@@ -203,6 +230,8 @@ if __name__ == '__main__':
     @window.event
     def on_draw():
         window.clear()
+
+        allocator._defrag()
 
         rotator = ('rotator',)
         sections = get_sections(rotator)
@@ -221,7 +250,8 @@ if __name__ == '__main__':
         fps_display.draw()
 
     pyglet.clock.schedule(lambda _: None)
-
+    pyglet.clock.schedule_interval(lambda x,*y: add_some(*y),1,2)
+    pyglet.clock.schedule_interval(lambda x,*y: delete_some(*y),2,4)
     pyglet.app.run()
 
 
