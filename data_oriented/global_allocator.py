@@ -177,6 +177,9 @@ class GlobalAllocator(object):
        alloc_table = self._allocation_table
        component_dict  = self.component_dict
        adds_dict  = self._cached_adds
+       if (not adds_dict) and (None not in alloc_table.guids):
+           return  #nothing to do
+
        #delete_set = self._cached_deletes
        def safe_len(item):
            if item is None:
@@ -197,15 +200,14 @@ class GlobalAllocator(object):
            alloc_table.stage_add(guid,add)
 
        #defrag
-       print "defrag"
-       for name, (alloc_total, sources, targets) in zip(alloc_table.column_names,alloc_table.compress()):
-           if name == 'component_1': print "working on component_1"
+       #print "defrag"
+       for name, (new_size, sources, targets) in zip(alloc_table.column_names,alloc_table.compress()):
+           #if name == 'component_1': print "working on component_1"
            component = component_dict[name]
-           if alloc_total > 0:
-               component.alloc(alloc_total)
+           component.assert_capacity(new_size)
            for source,target in zip(sources,targets):
-               if name == "component_1":
-                 print "moving",component[source],"to",target
+               #if name == "component_1":
+               #  print "moving",component[source],"to",target
                component[target] = component[source]
  
        #apply adds

@@ -394,8 +394,8 @@ class Table(object):
         #columnize the row data
         #TODO make this a generator?
         ret = []
-        for this_alloc, col_sources, col_targets in zip(
-                total_alloc, zip(*sources), zip(*targets)):
+        for new_capacity, col_sources, col_targets in zip(
+                new_ends, zip(*sources), zip(*targets)):
             #print "sources:"
             col_sources = tuple((s for s in col_sources if slice_is_not_empty(s)))
             #print "targets:"
@@ -406,7 +406,7 @@ class Table(object):
                     assert s.stop-s.start == t.stop-t.start, \
                         'source size and target size must match'
             assert len(col_sources) == len(col_targets)
-            ret.append((this_alloc,col_sources,col_targets))
+            ret.append((new_capacity,col_sources,col_targets))
 
         return ret
 

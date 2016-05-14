@@ -50,19 +50,18 @@ class DefraggingArrayComponent(object):
       else:
         raise ValueError('''ArrayComponent dim must be >= 1''')
 
-    def resize(self,count):
-        '''resize this component to new size = count'''
-        #This is a placeholder, __init__ decides what to overwrite this with
-        # ^ not true any more
-        self._buffer.resize((count,)+self._dim)
+    #def resize(self,count):
+    #    '''resize this component to new size = count'''
+    #    #This is a placeholder, __init__ decides what to overwrite this with
+    #    # ^ not true any more
+    #    self._buffer= self._buffer.resize((count,)+self._dim)
         
 
-    def alloc(self,size):
-        '''make certain Component can accept `size` new values
-        resizing if necessary. `size` <= 0 will not have and effect'''
-        print "allocating %s to %s"%(size,self.name)
-        new_capacity = len(self._buffer)+size
+    def assert_capacity(self,new_capacity):
+        '''make certain Component is atleast `new_capcpity` big.
+        resizing if necessary.'''
         if self.capacity < new_capacity:
+            #print "change capacity:",self.capacity,"->", new_capacity
             self.resize(_nearest_pow2(new_capacity))
             self.capacity = new_capacity
 
@@ -89,13 +88,24 @@ class DefraggingArrayComponent(object):
 
     def __setitem__(self,selector,data):
       self._buffer[selector]=data
-      assert self.datatype == self._buffer.dtype, 'numpy dtype has not changed'
+      assert self.datatype == self._buffer.dtype, 'numpy dtype may not change'
 
     def _resize_multidim(self,count):
-      self._buffer.resize((count,)+self._dim)
+      shape =(count,)+self._dim 
+      try:
+         #this try is because empty record arrays cannot be resized.
+         #should be fixed in a more recent numpy.
+         self._buffer.resize(shape)
+      except ValueError:
+         self._buffer = np.resize(self._buffer,shape)
 
     def _resize_singledim(self,count):
-      self._buffer.resize(count)
+      try:
+         #this try is because empty record arrays cannot be resized.
+         #should be fixed in a more recent numpy.
+         self._buffer.resize(count)
+      except ValueError:
+         self._buffer = np.resize(self._buffer,count)
 
     def __repr__(self):
       return "<DefraggingArrayComponent: %s>"%self.name

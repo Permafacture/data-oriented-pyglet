@@ -171,7 +171,6 @@ def add_some(n,n2=None,allocator=allocator):
     if n2 is given, distibute n to one type and n2 to the other
     '''
 
-    print "n1 and n2:",str(n),str(n2)
     assert isinstance(n,int) and (1 if n2 is None else isinstance(n2,int)),\
         "n1 and n2 (if given) must be integers"
 
@@ -182,7 +181,6 @@ def add_some(n,n2=None,allocator=allocator):
     else:
       n1 = n
       n2 = 0
-    print "  n1 and n2:",str(n1),str(n2)
 
     positions = [(x*width,y*height,z) for x,y,z in np.random.random((n1,3))]
     rs = [r*50 for r in np.random.random(n1)] 
@@ -223,20 +221,17 @@ if __name__ == '__main__':
     text = """Numpy ECS"""
     label = pyglet.text.HTMLLabel(text, x=10, y=height-10)
    
-    print "add_some" 
+    #add some polygons 
     add_some(100,50)
     allocator._defrag()
-
-    print "delete some"
-    delete_some(30)
-    allocator._defrag()
-    print "done with delete defrag"
 
     get_sections = allocator.selectors_from_component_query
 
     @window.event
     def on_draw():
         window.clear()
+
+        allocator._defrag()
 
         rotator = ('rotator',)
         sections = get_sections(rotator)
@@ -255,8 +250,8 @@ if __name__ == '__main__':
         fps_display.draw()
 
     pyglet.clock.schedule(lambda _: None)
-    pyglet.clock.schedule_interval(lambda x,*y: add_some(*y),1,20)
-    pyglet.clock.schedule_interval(lambda x: allocator._defrag(),1)
+    pyglet.clock.schedule_interval(lambda x,*y: add_some(*y),1,2)
+    pyglet.clock.schedule_interval(lambda x,*y: delete_some(*y),2,4)
     pyglet.app.run()
 
 
