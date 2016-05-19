@@ -295,14 +295,14 @@ if __name__ == '__main__':
     trash = map(allocator.add,to_add)
     #allocator.add(to_add2)
     allocator._defrag()
-    print "d1:",d1[:]
+    #print "d1:",d1[:]
 
     to_add = []
     to_add.append({'component_1':8,'component_3':(22,23,24),})
     trash = map(allocator.add,to_add)
     #allocator.add(to_add2)
     allocator._defrag()
-    print "d1:",d1[:]
+    #print "d1:",d1[:]
 
     to_add = []
     to_add.append({'component_1':5,'component_3':(13,14,15),'component_2':((9,90),(10,100)),})
@@ -311,7 +311,7 @@ if __name__ == '__main__':
     trash = map(allocator.add,to_add)
     #allocator.add(to_add2)
     allocator._defrag()
-    print "d1:",d1[:]
+    assert np.all(d1[:9] == np.array([1,2,3,4,5,6,7,8,9]))
 
     #to_add1 = {'component_1':2,'component_3':8,'component_2':7,}
     #to_add2 = {'component_1':5,'component_3':2,}

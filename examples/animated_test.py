@@ -143,9 +143,12 @@ def update_display(verts,tex_coords,texture=bird_texture):
     gl.glBindTexture(texture.target, texture.id)
 
     gl.glPushAttrib(gl.GL_COLOR_BUFFER_BIT)
-    
-    gl.glEnable (gl.GL_BLEND)                                                            
-    gl.glBlendFunc (gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)                             
+   
+    gl.glEnable(gl.GL_ALPHA_TEST)                                                            
+    gl.glAlphaFunc (gl.GL_GREATER, .1)                             
+    #gl.glEnable(gl.GL_BLEND)                                                            
+    #gl.glBlendFunc (gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)                             
+    gl.glEnable(gl.GL_DEPTH_TEST) 
 
     gl.glEnableClientState(gl.GL_VERTEX_ARRAY)
     gl.glEnableClientState(gl.GL_TEXTURE_COORD_ARRAY)
@@ -175,7 +178,7 @@ if __name__ == '__main__':
     positions = np.random.random((n,3))
     positions[:,0] *= window_width
     positions[:,1] *= window_height
-    sizes = (positions[:,2]+1)*75
+    sizes = (positions[:,2])*200
     anim_starts = np.random.random_integers(0,20,size=n) 
 
     for size, position, start in zip(sizes, positions,  anim_starts):

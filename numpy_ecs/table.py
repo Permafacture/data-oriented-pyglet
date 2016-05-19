@@ -524,8 +524,8 @@ if __name__ == '__main__':
       else:
         print "Test failed: re-added staged guid"
 
-    for alloc, sources, targets in t.compress():
-      assert alloc == 6, "allocated %s instead of 6" % alloc
+    for capacity, sources, targets in t.compress():
+      assert capacity == 6, "capacity set to %s instead of 6" % alloc
       assert not sources, "no data should be moved:" + str(zip(sources,targets))
 
 
@@ -550,9 +550,10 @@ if __name__ == '__main__':
       
     #test adding an entity to a non-empty table
     t.stage_add(4,(10,10))
+    print "staged_adds:",t._staged_adds
 
-    for n, (alloc, sources, targets) in enumerate(t.compress()):
-      assert alloc == 10, "allocated %s instead of 10" % alloc
+    for n, (capacity, sources, targets) in enumerate(t.compress()):
+      assert capacity == 16, "capacity set to %s instead of 16" % alloc
       if n == 0:
         assert not sources and not targets, "first component does not move"
       elif n == 1:
@@ -581,4 +582,4 @@ if __name__ == '__main__':
     t.compress()
     expected = {(1,0):slice(0,5,1),(1,1):slice(5,11,1),(0,1):slice(11,None,1)}
     assert t.section_slices()==expected, "section_slices should return expected result"
-    assert t.mask_slices((1,1))[1] == [slice(15, 33, None), slice(0, 18, None)]
+    assert t.mask_slices(('one','two'),())[0] == {'one':slice(15, 33, None), 'two':slice(0, 18, None)}
