@@ -7,4 +7,6 @@ improve defragmenting
 
 make Systems easier to call
 
+Create Accessor objects from GUID for object oriented interface when desired.
+
 Make shared memory IPC and multiprocessing easier and give an example.

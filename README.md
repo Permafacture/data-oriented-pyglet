@@ -93,6 +93,8 @@ used to run the physics and rendering as seperate processes.  The shared
 memory made up most of the inter process communication (IPC).  The result was 
 180 FPS for the physics and 600 FPS for the rendering.
 
+examples: https://vimeo.com/65989831 https://vimeo.com/66736654
+
 History
 =======
 
