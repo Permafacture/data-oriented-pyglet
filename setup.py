@@ -9,5 +9,6 @@ setup(
     license = "GPLv2",
     keywords = "data oriented programming, ECS",
     url = "https://github.com/Permafacture/data-oriented-pyglet",
+    install_requires = ['numpy','pyglet'],
     packages=['numpy_ecs',],
 )
