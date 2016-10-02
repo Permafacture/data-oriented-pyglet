@@ -72,7 +72,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 # ]
 #
 #
-from table import Table, INDEX_SEPERATOR
+from numpy_ecs.table import Table, INDEX_SEPERATOR #I had to add numpy_ecs
 import numpy as np
 
 def verify_component_schema(allocation_schema):
@@ -226,7 +226,9 @@ class GlobalAllocator(object):
         known_names = self.names
         for x in query:
             if (sep not in x) and (x not in known_names):
-                print "%s in query is not valid"%x
+                #python2/3 compatibility
+                # print "%s in query is not valid"%x 
+                print(x, "in query is not valid")
                 return False
         return True
 

@@ -522,7 +522,9 @@ if __name__ == '__main__':
       except AssertionError:
         pass
       else:
-        print "Test failed: re-added staged guid"
+        #py2/3 print
+        # print "Test failed: re-added staged guid"
+        print("Test failed: re-added staged guid")
 
     for capacity, sources, targets in t.compress():
       assert capacity == 6, "capacity set to %s instead of 6" % alloc
@@ -546,11 +548,11 @@ if __name__ == '__main__':
     except AssertionError:
       pass
     else:
-      print "Test failed:  re-added allocated guid"
+      print("Test failed:  re-added allocated guid")
       
     #test adding an entity to a non-empty table
     t.stage_add(4,(10,10))
-    print "staged_adds:",t._staged_adds
+    print("staged_adds:",t._staged_adds)
 
     for n, (capacity, sources, targets) in enumerate(t.compress()):
       assert capacity == 16, "capacity set to %s instead of 16" % alloc

@@ -62,7 +62,7 @@ def array_rotate(initiald):
 
     #flatten and return as a tuple for vertbuffer
     #return tuple(map(int,[val for subl in pts for val in subl]))
-    pts.shape = ( reduce(lambda xx,yy: xx*yy, pts.shape), )
+    pts.shape = ( reduce(lambda xx,yy: xx*yy, pts.shape), ) #it say reduce is not defined
     return pts.astype(np.int32)
 
 for n in [5,10,25,50,100,500,1000]:
@@ -71,11 +71,14 @@ for n in [5,10,25,50,100,500,1000]:
   start = time.time()
   trash = list_rotate(lst)
   end = time.time()
-  print "did list of %s in %s" % (n, end-start)
+  #compatibility python2/3 issue here
+  #print "did list of %s in %s" % (n, end-start)
+  print("did list of", n, "in", end-start)
 
   start = time.time()
   trash = array_rotate(arr)
   end = time.time()
-  print "did array of %s in %s" % (n, end-start)
-
-  print "\n"
+  # compatibility python2/3 issue here
+  # print "did array of %s in %s" % (n, end-start)
+  # print "\n"
+  print("did array of", n, "in", end-start)

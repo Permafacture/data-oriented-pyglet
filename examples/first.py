@@ -134,7 +134,7 @@ poly_args = [(r*50,int(m*10)+3) for r,m in np.random.random((n,2))]
 colors = [map(lambda x: int(x*255),vals) for vals in np.random.random((n,3))]
 
 ents = [Convex(polyOfN(*pargs),position=pos, color=col) for pargs,pos,col in zip(poly_args,positions,colors)]
-
+# TypeError: unsupported operand type(s) for *: 'map' and 'int'
 angles= [0]*n
 rates = list(np.random.random(n)*.02)
 @window.event

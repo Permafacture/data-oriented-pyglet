@@ -32,7 +32,7 @@ from pyglet import gl
 from collections import namedtuple
 from operator import add
 
-from numpy_ecs.global_allocator import GlobalAllocator
+from numpy_ecs.global_allocator import GlobalAllocator #ImportError: No module named 'numpy_ecs'
 from numpy_ecs.components import DefraggingArrayComponent as Component
 
 dtype_tuple  = namedtuple('Dtype',('np','gl'))
