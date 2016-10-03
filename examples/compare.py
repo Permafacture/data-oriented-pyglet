@@ -21,6 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
 import numpy as np
 from math import pi, sin, cos,atan2,sqrt
+from functools import reduce
 import time
 
 def gen_initiald(n):

@@ -34,7 +34,7 @@ from pyglet import gl
 from math import pi, sin, cos,atan2,sqrt
 import time 
 from collections import namedtuple
-
+from functools import reduce
 
 #Keep datatypes between numpy and gl consistent
 dtype_tuple = namedtuple('Dtype',('np_type','gl_type'))

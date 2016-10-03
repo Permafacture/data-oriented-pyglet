@@ -31,7 +31,7 @@ from pyglet import gl
 from pyglet.graphics import Batch
 from math import pi, sin, cos,atan2,sqrt
 import time 
-
+import pdb
 #Limit run time for profiling
 run_for = 15 #seconds to run test for
 def done_yet(duration = run_for, start=time.time()):
@@ -103,13 +103,14 @@ class Convex(object):
         self.initial_data = [(pt[0],pt[1],sqrt(pt[0]**2+pt[1]**2),cos(atan2(pt[1],pt[0])),sin(atan2(pt[1],pt[0]))) for pt in wound]
         verts = self.rotate(0)
         self.n=len(verts)//2
+        print(verts)
         self.set_colors()
         self.vertlist = main_batch.add(self.n, gl.GL_TRIANGLE_STRIP,None,
   ('v2i,',verts),('c3b',self.colors))
 
     def set_colors(self):
         self.colors = self.color*self.n
- 
+
     def rotate(self,theta):
         px, py = self.position
         initiald = self.initial_data
@@ -127,12 +128,12 @@ class Convex(object):
         ##print(self.vertlist.colors)
         self.vertlist.colors=self.colors
 
-
-n=1000
+#pdb.set_trace()
+n=3
 positions = [(x*width,y*height) for x,y in np.random.random((n,2))]
 poly_args = [(r*50,int(m*10)+3) for r,m in np.random.random((n,2))] 
-colors = [map(lambda x: int(x*255),vals) for vals in np.random.random((n,3))]
-
+colors = [list(map(lambda x: int(x*255),vals)) for vals in np.random.random((n,3))]
+#debug: colors is a list of map object, so a list of iterator, I changed that to a list of list
 ents = [Convex(polyOfN(*pargs),position=pos, color=col) for pargs,pos,col in zip(poly_args,positions,colors)]
 # TypeError: unsupported operand type(s) for *: 'map' and 'int'
 angles= [0]*n

@@ -203,6 +203,7 @@ class Table(object):
         id_column = self.class_ids
         expressed_ids = filter(lambda x: x in id_column,known_ids)
         starts = map(id_column.index,expressed_ids)
+        # TypeError: object of type 'map' has no len()
         assert all(starts[x]<starts[x+1] for x in range(len(starts)-1)),\
             'id_column must be in same order as known_ids'
         stops = starts[1:]+[None]
