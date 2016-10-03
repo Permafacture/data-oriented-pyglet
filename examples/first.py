@@ -59,7 +59,7 @@ def draw():
 
     main_batch.draw()
 
-#helper hunction for making polygons
+#helper function for making polygons
 def polyOfN(radius,n):
     r=radius
     if n < 3:
@@ -103,7 +103,6 @@ class Convex(object):
         self.initial_data = [(pt[0],pt[1],sqrt(pt[0]**2+pt[1]**2),cos(atan2(pt[1],pt[0])),sin(atan2(pt[1],pt[0]))) for pt in wound]
         verts = self.rotate(0)
         self.n=len(verts)//2
-        print(verts)
         self.set_colors()
         self.vertlist = main_batch.add(self.n, gl.GL_TRIANGLE_STRIP,None,
   ('v2i,',verts),('c3b',self.colors))
@@ -128,7 +127,7 @@ class Convex(object):
         ##print(self.vertlist.colors)
         self.vertlist.colors=self.colors
 
-#pdb.set_trace()
+
 n=3
 positions = [(x*width,y*height) for x,y in np.random.random((n,2))]
 poly_args = [(r*50,int(m*10)+3) for r,m in np.random.random((n,2))] 
@@ -138,6 +137,7 @@ ents = [Convex(polyOfN(*pargs),position=pos, color=col) for pargs,pos,col in zip
 # TypeError: unsupported operand type(s) for *: 'map' and 'int'
 angles= [0]*n
 rates = list(np.random.random(n)*.02)
+pdb.set_trace()
 @window.event
 def on_draw():
     global angle
