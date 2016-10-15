@@ -72,6 +72,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 # ]
 #
 #
+from __future__ import absolute_import, division, print_function, unicode_literals
+from builtins import zip, map
 from numpy_ecs.table import Table, INDEX_SEPERATOR #I had to add numpy_ecs
 import numpy as np
 
@@ -202,11 +204,11 @@ class GlobalAllocator(object):
 
        #defrag
        #print "defrag"
-       for name, (new_size, sources, targets) in zip(alloc_table.column_names,alloc_table.compress()):
+       for name, (new_size, sources, targets) in list(zip(alloc_table.column_names,alloc_table.compress())):
            #if name == 'component_1': print "working on component_1"
            component = component_dict[name]
            component.assert_capacity(new_size)
-           for source,target in zip(sources,targets):
+           for source,target in list(zip(sources,targets)):
                #if name == "component_1":
                #  print "moving",component[source],"to",target
                component[target] = component[source]
@@ -294,14 +296,14 @@ if __name__ == '__main__':
     to_add.append({'component_1':3,'component_3':(7,8,9),'component_2':((5,50),(6,60)),})
     to_add.append({'component_1':4,'component_3':(10,11,12),'component_2':((7,70),(8,80)),})
     to_add.append({'component_1':7,'component_3':(19,20,21),})
-    trash = map(allocator.add,to_add)
+    trash = list(map(allocator.add,to_add))
     #allocator.add(to_add2)
     allocator._defrag()
     #print "d1:",d1[:]
 
     to_add = []
     to_add.append({'component_1':8,'component_3':(22,23,24),})
-    trash = map(allocator.add,to_add)
+    trash = list(map(allocator.add,to_add))
     #allocator.add(to_add2)
     allocator._defrag()
     #print "d1:",d1[:]
@@ -310,7 +312,7 @@ if __name__ == '__main__':
     to_add.append({'component_1':5,'component_3':(13,14,15),'component_2':((9,90),(10,100)),})
     to_add.append({'component_1':6,'component_3':(16,17,18),'component_2':((11,110),(12,120)),})
     to_add.append({'component_1':9,'component_3':(25,26,27),})
-    trash = map(allocator.add,to_add)
+    trash = list(map(allocator.add,to_add))
     #allocator.add(to_add2)
     allocator._defrag()
     assert np.all(d1[:9] == np.array([1,2,3,4,5,6,7,8,9]))

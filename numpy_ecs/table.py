@@ -32,7 +32,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
-
+from __future__ import absolute_import, division, print_function, unicode_literals
+from builtins import zip, map
 from collections import MutableMapping, Sequence
 from types import GeneratorType
 
@@ -202,7 +203,7 @@ class Table(object):
         known_ids = self.known_class_ids
         id_column = self.class_ids
         expressed_ids = filter(lambda x: x in id_column,known_ids)
-        starts = map(id_column.index,expressed_ids)
+        starts = list(map(id_column.index,expressed_ids))
         # TypeError: object of type 'map' has no len()
         assert all(starts[x]<starts[x+1] for x in range(len(starts)-1)),\
             'id_column must be in same order as known_ids'

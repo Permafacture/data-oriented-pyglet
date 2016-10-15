@@ -26,8 +26,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
 '''
-
 from __future__ import absolute_import, division, print_function, unicode_literals
+from builtins import zip
 import numpy as np
 import pyglet
 from pyglet import gl
@@ -197,5 +197,3 @@ def on_draw():
 pyglet.clock.schedule(lambda _: None)
 
 pyglet.app.run()
-
-

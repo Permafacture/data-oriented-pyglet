@@ -11,4 +11,5 @@ setup(
     url = "https://github.com/Permafacture/data-oriented-pyglet",
     install_requires = ['numpy','pyglet'],
     packages=['numpy_ecs',],
+    classifiers=["Programming Language :: Python :: 3"]
 )

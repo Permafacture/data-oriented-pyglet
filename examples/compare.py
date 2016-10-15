@@ -19,6 +19,8 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
+from __future__ import absolute_import, division, print_function, unicode_literals
+from builtins import map
 import numpy as np
 from math import pi, sin, cos,atan2,sqrt
 from functools import reduce
@@ -63,7 +65,7 @@ def array_rotate(initiald):
 
     #flatten and return as a tuple for vertbuffer
     #return tuple(map(int,[val for subl in pts for val in subl]))
-    pts.shape = ( reduce(lambda xx,yy: xx*yy, pts.shape), ) #it say reduce is not defined
+    pts.shape = ( reduce(lambda xx,yy: xx*yy, pts.shape), )
     return pts.astype(np.int32)
 
 for n in [5,10,25,50,100,500,1000]:
@@ -72,14 +74,9 @@ for n in [5,10,25,50,100,500,1000]:
   start = time.time()
   trash = list_rotate(lst)
   end = time.time()
-  #compatibility python2/3 issue here
-  #print "did list of %s in %s" % (n, end-start)
-  print("did list of", n, "in", end-start)
+  print("did list of {} in {:.6f}".format(n, end-start))
 
   start = time.time()
   trash = array_rotate(arr)
   end = time.time()
-  # compatibility python2/3 issue here
-  # print "did array of %s in %s" % (n, end-start)
-  # print "\n"
-  print("did array of", n, "in", end-start)
+  print("did array of {} in {:.6f} \n".format(n, end-start))

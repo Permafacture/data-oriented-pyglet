@@ -22,9 +22,8 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
-
-
 from __future__ import absolute_import, division, print_function, unicode_literals
+from builtins import map
 import numpy as np
 import pyglet
 from pyglet import gl
@@ -32,6 +31,7 @@ from pyglet.graphics import Batch
 from math import pi, sin, cos,atan2,sqrt
 import time 
 import pdb
+
 #Limit run time for profiling
 run_for = 15 #seconds to run test for
 def done_yet(duration = run_for, start=time.time()):
@@ -72,7 +72,8 @@ class Convex(object):
     '''Convex polygons for rendering'''
     global main_batch
 
-    def __init__(self,pts, position=None, color=None, radius=0):
+    def __init__(self,pts, position=None, color=None, radius=0): 
+        # comment from chemsed: why the radius argument?
         if position is None:
           position = (width//2, height//2)
         self.position = position
@@ -128,7 +129,7 @@ class Convex(object):
         self.vertlist.colors=self.colors
 
 
-n=3
+n=1000
 positions = [(x*width,y*height) for x,y in np.random.random((n,2))]
 poly_args = [(r*50,int(m*10)+3) for r,m in np.random.random((n,2))] 
 colors = [list(map(lambda x: int(x*255),vals)) for vals in np.random.random((n,3))]
@@ -157,5 +158,3 @@ def on_draw():
 pyglet.clock.schedule(lambda _: None)
 
 pyglet.app.run()
-
-
