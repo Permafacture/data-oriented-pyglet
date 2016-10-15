@@ -23,7 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
 from __future__ import absolute_import, division, print_function, unicode_literals
-from builtins import map
+from builtins import map, zip
 import numpy as np
 import pyglet
 from pyglet import gl
@@ -133,12 +133,9 @@ n=1000
 positions = [(x*width,y*height) for x,y in np.random.random((n,2))]
 poly_args = [(r*50,int(m*10)+3) for r,m in np.random.random((n,2))] 
 colors = [list(map(lambda x: int(x*255),vals)) for vals in np.random.random((n,3))]
-#debug: colors is a list of map object, so a list of iterator, I changed that to a list of list
 ents = [Convex(polyOfN(*pargs),position=pos, color=col) for pargs,pos,col in zip(poly_args,positions,colors)]
-# TypeError: unsupported operand type(s) for *: 'map' and 'int'
 angles= [0]*n
 rates = list(np.random.random(n)*.02)
-pdb.set_trace()
 @window.event
 def on_draw():
     global angle

@@ -44,7 +44,7 @@ class DefraggingArrayComponent(object):
       if dim == (1,):
         self._buffer = np.empty(size,dtype=dtype) #shape = (size,) not (size,1)
         self.resize = self._resize_singledim
-      elif dim > (1,):
+      elif dim > (1,): #dim is a tuple, not a scalar it seems
         self._buffer = np.empty((size,)+dim,dtype=dtype) #shape = (size,dim)
         self.resize = self._resize_multidim
       else:

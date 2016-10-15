@@ -204,11 +204,11 @@ class GlobalAllocator(object):
 
        #defrag
        #print "defrag"
-       for name, (new_size, sources, targets) in list(zip(alloc_table.column_names,alloc_table.compress())):
+       for name, (new_size, sources, targets) in zip(alloc_table.column_names,alloc_table.compress()):
            #if name == 'component_1': print "working on component_1"
            component = component_dict[name]
            component.assert_capacity(new_size)
-           for source,target in list(zip(sources,targets)):
+           for source,target in zip(sources,targets):
                #if name == "component_1":
                #  print "moving",component[source],"to",target
                component[target] = component[source]
@@ -228,8 +228,6 @@ class GlobalAllocator(object):
         known_names = self.names
         for x in query:
             if (sep not in x) and (x not in known_names):
-                #python2/3 compatibility
-                # print "%s in query is not valid"%x 
                 print(x, "in query is not valid")
                 return False
         return True

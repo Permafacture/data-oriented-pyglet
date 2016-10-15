@@ -204,7 +204,6 @@ class Table(object):
         id_column = self.class_ids
         expressed_ids = filter(lambda x: x in id_column,known_ids)
         starts = list(map(id_column.index,expressed_ids))
-        # TypeError: object of type 'map' has no len()
         assert all(starts[x]<starts[x+1] for x in range(len(starts)-1)),\
             'id_column must be in same order as known_ids'
         stops = starts[1:]+[None]
@@ -397,7 +396,7 @@ class Table(object):
         #TODO make this a generator?
         ret = []
         for new_capacity, col_sources, col_targets in zip(
-                new_ends, zip(*sources), zip(*targets)):
+                new_ends, list(zip(*sources)), list(zip(*targets))):
             #print "sources:"
             col_sources = tuple((s for s in col_sources if slice_is_not_empty(s)))
             #print "targets:"
@@ -524,8 +523,6 @@ if __name__ == '__main__':
       except AssertionError:
         pass
       else:
-        #py2/3 print
-        # print "Test failed: re-added staged guid"
         print("Test failed: re-added staged guid")
 
     for capacity, sources, targets in t.compress():

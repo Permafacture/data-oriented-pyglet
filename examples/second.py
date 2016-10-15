@@ -168,7 +168,7 @@ def mass_rotate(initial_data,theta):
     pts[:,1] += pys
 
     #flatten and return as correct type
-    pts.shape = ( reduce(lambda xx,yy: xx*yy, pts.shape), ) # reduce is not defined
+    pts.shape = ( reduce(lambda xx,yy: xx*yy, pts.shape), )
     return pts.astype(vert_dtype.np_type)
 
 
