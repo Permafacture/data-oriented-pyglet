@@ -30,7 +30,7 @@ from pyglet import gl
 from pyglet.graphics import Batch
 from math import pi, sin, cos,atan2,sqrt
 import time 
-import pdb
+
 
 #Limit run time for profiling
 run_for = 15 #seconds to run test for
