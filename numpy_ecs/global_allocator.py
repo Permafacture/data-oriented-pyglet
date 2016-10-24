@@ -74,7 +74,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 from __future__ import absolute_import, division, print_function, unicode_literals
 from builtins import zip, map
-from numpy_ecs.table import Table, INDEX_SEPERATOR #I had to add numpy_ecs
+from table import Table, INDEX_SEPERATOR
 import numpy as np
 
 def verify_component_schema(allocation_schema):

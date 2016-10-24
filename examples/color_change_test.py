@@ -29,6 +29,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
 import numpy as np
+from builtins import zip
 from numpy import sin, cos, pi, sqrt
 from math import atan2
 import pyglet

@@ -19,6 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
 import numpy as np
 from numpy import sin, cos, pi, sqrt
+from builtins import zip
 from math import atan2
 import pyglet
 from pyglet import gl
@@ -56,7 +57,7 @@ def wind_pts(pts,reshape=False):
     '''take clockwise or counter clockwise points and wind them as would
     be needed for rendering as triangle strips'''
     if reshape:
-        pts = zip(pts[::3],pts[1::3],pts[2::3])
+        pts = list(zip(pts[::3],pts[1::3],pts[2::3]))
     l = len(pts)
     cw = pts[:l//2]
     ccw = pts[l//2:][::-1]
