@@ -19,8 +19,11 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
-from __future__ import absolute_import, division, print_function, unicode_literals
-from builtins import map
+from __future__ import absolute_import, division, print_function
+#python version compatability
+import sys
+if sys.version_info < (3,0):
+    from future_builtins import zip, map
 import numpy as np
 from math import pi, sin, cos,atan2,sqrt
 from functools import reduce

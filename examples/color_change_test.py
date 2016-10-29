@@ -29,7 +29,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
 import numpy as np
-from builtins import zip
+#python version compatability
+import sys
+if sys.version_info < (3,0):
+    from future_builtins import zip, map
 from numpy import sin, cos, pi, sqrt
 from math import atan2
 import pyglet

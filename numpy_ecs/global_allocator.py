@@ -72,10 +72,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 # ]
 #
 #
-from __future__ import absolute_import, division, print_function, unicode_literals
-from builtins import zip, map
-from table import Table, INDEX_SEPERATOR
+from __future__ import absolute_import, division, print_function
+import sys
+#python version compatability
+if sys.version_info < (3,0):
+    from future_builtins import zip, map
+
 import numpy as np
+from .table import Table, INDEX_SEPERATOR
 
 def verify_component_schema(allocation_schema):
     '''given an allocation schema as a list of lists, return True if the schema
