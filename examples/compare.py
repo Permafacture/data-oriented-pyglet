@@ -29,6 +29,10 @@ from math import pi, sin, cos,atan2,sqrt
 from functools import reduce
 import time
 
+#for reproduceable output
+seed = 123456789
+np.random.seed(seed)
+
 def gen_initiald(n):
 
     pts = np.random.random((n,2)).astype(np.float32)

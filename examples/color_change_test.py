@@ -43,6 +43,10 @@ from operator import add
 from numpy_ecs.global_allocator import GlobalAllocator
 from numpy_ecs.components import DefraggingArrayComponent as Component
 
+#for reproduceable output
+seed = 123456789
+np.random.seed(seed)
+
 dtype_tuple  = namedtuple('Dtype',('np','gl'))
 vert_dtype   = dtype_tuple(np.float32,gl.GL_FLOAT)
 color_dtype  = dtype_tuple(np.float32,gl.GL_FLOAT)

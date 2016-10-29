@@ -32,6 +32,12 @@ from operator import add
 from numpy_ecs.global_allocator import GlobalAllocator
 from numpy_ecs.components import DefraggingArrayComponent as Component
 
+#for reproduceable output
+seed = 123456789
+random.seed(seed)
+np.random.seed(seed)
+
+
 window_width, window_height = 640,480
 
 

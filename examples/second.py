@@ -39,6 +39,10 @@ import time
 from collections import namedtuple
 from functools import reduce
 
+#for reproduceable output
+seed = 123456789
+np.random.seed(seed)
+
 #Keep datatypes between numpy and gl consistent
 dtype_tuple = namedtuple('Dtype',('np_type','gl_type'))
 vert_dtype = dtype_tuple(np.float32,gl.GL_FLOAT)

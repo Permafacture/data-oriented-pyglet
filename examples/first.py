@@ -34,6 +34,9 @@ from pyglet.graphics import Batch
 from math import pi, sin, cos,atan2,sqrt
 import time 
 
+#for reproduceable output
+seed = 123456789
+np.random.seed(seed)
 
 #Limit run time for profiling
 run_for = 15 #seconds to run test for

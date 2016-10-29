@@ -42,6 +42,10 @@ from operator import add
 from numpy_ecs.global_allocator import GlobalAllocator
 from numpy_ecs.components import DefraggingArrayComponent as Component
 
+seed = 123456789
+random.seed(seed)
+np.random.seed(seed)
+
 dtype_tuple  = namedtuple('Dtype',('np','gl'))
 vert_dtype   = dtype_tuple(np.float32,gl.GL_FLOAT)
 color_dtype  = dtype_tuple(np.float32,gl.GL_FLOAT)
@@ -157,6 +161,7 @@ def update_render_verts(render_verts,poly_verts,positions,rotator,indices=[]):
     pts[:,1] += positions[indices,1]
 
 def update_display(render_verts,colors):
+    #print("display called")
     gl.glClearColor(0.2, 0.4, 0.5, 1.0)
     gl.glBlendFunc (gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)                             
     gl.glEnable (gl.GL_BLEND)                                                            
@@ -240,8 +245,9 @@ if __name__ == '__main__':
     get_sections = allocator.selectors_from_component_query
 
    
+    @window.event
     def on_draw():
-        #pdb.set_trace()
+        #print("draw called")
         window.clear()
 
         allocator._defrag()
