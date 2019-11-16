@@ -1,5 +1,6 @@
 '''
-Numpy-ECS example of rotating and rendering polygons
+Numpy-ECS example of using an Accessor to manipulate an entity instance
+in an object oriented manner
 
 Hard coded example of the following Entity_class_id table:
  
@@ -24,25 +25,34 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
+from __future__ import absolute_import, division, print_function
+#python version compatability
+import sys
+if sys.version_info < (3,0):
+    from future_builtins import zip, map
 import numpy as np
 from numpy import sin, cos, pi, sqrt
 from math import atan2
 import pyglet
+from pyglet.window.key import LEFT, RIGHT, UP, DOWN
 from pyglet import gl
 from collections import namedtuple
 from operator import add
-
 from numpy_ecs.global_allocator import GlobalAllocator
 from numpy_ecs.components import DefraggingArrayComponent as Component
+
+#for reproduceable output
+seed = 123456789
+np.random.seed(seed)
 
 dtype_tuple  = namedtuple('Dtype',('np','gl'))
 vert_dtype   = dtype_tuple(np.float32,gl.GL_FLOAT)
 color_dtype  = dtype_tuple(np.float32,gl.GL_FLOAT)
 
-counter_type = np.dtype([('max_val',  np.float32),
-                        ('min_val',    np.float32),
-                        ('interval',   np.float32),
-                        ('accumulator',np.float32)])
+counter_type = np.dtype([('max_val',    np.float32),
+                         ('min_val',    np.float32),
+                         ('interval',   np.float32),
+                         ('accumulator',np.float32)])
 
 
 allocator = GlobalAllocator((Component('render_verts' , (3,), vert_dtype.np ),
@@ -56,14 +66,6 @@ allocator = GlobalAllocator((Component('render_verts' , (3,), vert_dtype.np ),
                                                   (1,1,1,1,1), 
                                                  )
                            )
-
-
-#####################################
-#
-#   Entity creation helper functions
-#
-######################################
-
 def polyOfN(n,radius):
     '''helper function for making polygons'''
     r=radius
@@ -105,7 +107,8 @@ def add_rotating_regular_polygon(n_sides,radius,position,rate,
       'color':[color]*n,
       'position':position,
       'rotator':(rot_max,rot_min,rate,0) }
-    allocator.add(polygon)
+    guid = allocator.add(polygon)
+    return guid
 
 def add_regular_polygon(n_sides,radius,position,
                           color=(.5,.5,.5),allocator=allocator):
@@ -116,15 +119,8 @@ def add_regular_polygon(n_sides,radius,position,
       'render_verts': [(x+position[0],y+position[1],position[2]) for x,y,_,_,_ in poly_verts],
       'color':[color]*n,
       'position':position,}
-    allocator.add(polygon)
-
-
-
-#############
-#
-# Systems
-#
-#############
+    guid = allocator.add(polygon)
+    return guid
 
 def update_rotator(rotator):
         arr=rotator
@@ -171,12 +167,15 @@ def update_display(render_verts,colors):
     gl.glEnable (gl.GL_LINE_SMOOTH);                                                     
     gl.glEnableClientState(gl.GL_VERTEX_ARRAY)
     gl.glEnableClientState(gl.GL_COLOR_ARRAY)
+    gl.glEnable(gl.GL_DEPTH_TEST) 
 
     n = len(render_verts[:])
     #TODO verts._buffer.ctypes.data is awkward
     gl.glVertexPointer(3, vert_dtype.gl, 0, render_verts[:].ctypes.data)
     gl.glColorPointer(3,  color_dtype.gl, 0, colors[:].ctypes.data)
     gl.glDrawArrays(gl.GL_TRIANGLE_STRIP, 0, n)
+
+
 
 
 if __name__ == '__main__':
@@ -215,11 +214,49 @@ if __name__ == '__main__':
 
     allocator._defrag()
 
-    get_sections = allocator.selectors_from_component_query
+    # Create our hero
+    # white because it stands out against the random colors
+    # rotating because that's the system that updates the render_verts
+    hero_guid = add_rotating_regular_polygon(6,75,(width/2,height/2,1),0,color=(1,1,1))
+    allocator._defrag()
 
+    # note that hero_guid does not exist until the allocator id defragged
+    hero = allocator.accessor_from_guid(hero_guid)
+
+
+    movement_vector = np.array([0,0],np.int)
+
+    @window.event
+    def on_key_press(symbol, modifiers):
+        global movement_vector
+        if symbol == UP:
+            movement_vector[1] += 1
+        elif symbol == DOWN:
+            movement_vector[1] -= 1
+        elif symbol == RIGHT:
+            movement_vector[0] += 1
+        elif symbol == LEFT:
+            movement_vector[0] -= 1
+
+    @window.event
+    def on_key_release(symbol, modifiers):
+        global movement_vector
+        if symbol == UP:
+            movement_vector[1] += -1
+        elif symbol == DOWN:
+            movement_vector[1] -= -1
+        elif symbol == RIGHT:
+            movement_vector[0] += -1
+        elif symbol == LEFT:
+            movement_vector[0] -= -1
+
+
+    get_sections = allocator.selectors_from_component_query
     @window.event
     def on_draw():
         window.clear()
+
+        hero.position[0][:2] += movement_vector
 
         rotator = ('rotator',)
         sections = get_sections(rotator)
@@ -240,5 +277,3 @@ if __name__ == '__main__':
     pyglet.clock.schedule(lambda _: None)
 
     pyglet.app.run()
-
-

@@ -210,6 +210,16 @@ class Table(object):
             zip(expressed_ids,starts,stops)}
         return ret_val
  
+    def guid_slices(self,guid):
+        '''returns a dictionary of {component: slice object,} representing
+        the array slices that relate to the guid'''
+        assert guid in self.guids, "guid must already be allocated"
+        index = self.guids.index(guid)
+        starts = self.starts[index]
+        sizes = self.sizes[index]
+        return {attr:slice(start,start+size) for attr,start,size in \
+                    zip(self.col_names,starts,sizes) if size}
+
     def rows_from_class_ids(self,class_ids):
         '''
         container::class_ids - must be contiguous

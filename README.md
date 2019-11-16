@@ -78,6 +78,10 @@ sections of the `render_verts` and `color` numpy arrays by doing:
     sections = get_sections(draw)
     update_display(*(sections[name] for name in draw))
 
+TODO discuss Accessors which examples/hero1.py demonstrates. One can get an
+"instance" of an entity that allows access to the underlying arrays for a
+single item.
+
 Performance
 ===========
 

@@ -74,6 +74,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 from table import Table, INDEX_SEPERATOR
 import numpy as np
+from .table import Table, INDEX_SEPERATOR
+from .accessors import AccessorFactory
 
 def verify_component_schema(allocation_schema):
     '''given an allocation schema as a list of lists, return True if the schema
@@ -110,7 +112,13 @@ class GlobalAllocator(object):
  
         self._cached_adds = list()
         self._next_guid = 0
-   
+        self.__accessor_factory = AccessorFactory(self).generate_accessor()
+        self.__accessors = [] #accessors that have been handed out
+
+    def accessor_from_guid(self,guid):
+        accessor = self.__accessor_factory(guid)
+        self.__accessors.append(accessor)
+        return accessor
 
     @property
     def next_guid(self):
@@ -221,6 +229,8 @@ class GlobalAllocator(object):
        #reset
        self._cached_adds = list()
        self._memoized = dict()
+       for accessor in self.__accessors:
+           accessor._dirty = True
 
     def is_valid_query(self,query,sep=INDEX_SEPERATOR):
         known_names = self.names
